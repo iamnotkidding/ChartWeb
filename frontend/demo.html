@@ -1,6 +1,7 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>ChartForge</title>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts-wordcloud@2.1.0/dist/echarts-wordcloud.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
 <style>*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -80,21 +81,35 @@ header{
 }
 input[type=file]{display:none}
 
-/* ── Loading ── */
+/* ── Loading / Progress Panel ── */
 .loading-overlay{
   display:none;position:fixed;inset:0;z-index:9999;
   background:rgba(10,11,15,.92);
   place-items:center;backdrop-filter:blur(8px);
 }
 .loading-overlay.active{display:grid}
-.loader{text-align:center}
+.loader{text-align:center;max-width:420px;width:90%}
 .spinner{
-  width:56px;height:56px;border:3px solid var(--border);
+  width:48px;height:48px;border:3px solid var(--border);
   border-top-color:var(--accent);border-radius:50%;
-  animation:spin .8s linear infinite;margin:0 auto 1.5rem;
+  animation:spin .8s linear infinite;margin:0 auto 1rem;
 }
 @keyframes spin{to{transform:rotate(360deg)}}
-.loader p{color:var(--text-dim);font-size:.95rem}
+.loader p{color:var(--text-dim);font-size:.9rem}
+.progress-steps{margin-top:1.2rem;text-align:left}
+.p-step{
+  display:flex;align-items:center;gap:.65rem;padding:.4rem 0;
+  font-size:.8rem;color:var(--text-muted);transition:all .2s;
+}
+.p-step.active{color:var(--accent);font-weight:600}
+.p-step.done{color:var(--green)}
+.p-step .p-icon{width:18px;text-align:center;font-size:.85rem}
+.p-step .p-label{flex:1}
+.p-step .p-time{font-family:'JetBrains Mono',monospace;font-size:.65rem;min-width:42px;text-align:right;color:var(--text-muted)}
+.p-step.active .p-icon{animation:pulse 1s ease infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.p-bar{margin-top:1rem;height:4px;border-radius:2px;background:var(--surface3);overflow:hidden}
+.p-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--violet));border-radius:2px;transition:width .3s;width:0%}
 
 /* ── Results Layout ── */
 .results{display:none;max-width:1400px;margin:0 auto;padding:0 2rem 4rem}
@@ -131,6 +146,19 @@ input[type=file]{display:none}
 .col-card:hover{border-color:var(--border-hover);transform:translateY(-1px)}
 .col-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem}
 .col-name{font-weight:600;font-size:.95rem;font-family:'JetBrains Mono',monospace}
+/* Column toggle */
+.col-toggle{
+  width:36px;height:20px;border-radius:10px;border:none;cursor:pointer;
+  background:var(--green);position:relative;transition:background .2s;flex-shrink:0;
+}
+.col-toggle::after{
+  content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;
+  border-radius:50%;background:#fff;transition:transform .2s;
+}
+.col-toggle.off{background:var(--surface3)}
+.col-toggle.off::after{transform:translateX(16px);background:var(--text-muted)}
+.col-card.disabled{opacity:.4;filter:grayscale(.6)}
+.col-card.disabled .col-color-row,.col-card.disabled .val-colors-section,.col-card.disabled .col-samples{display:none}
 .col-color-row{display:flex;align-items:center;gap:.5rem;margin-bottom:.7rem}
 .col-color-swatch{
   width:28px;height:28px;border-radius:8px;border:2px solid var(--border);
@@ -189,6 +217,7 @@ input[type=file]{display:none}
 }
 .rec-card:hover{border-color:var(--accent);box-shadow:0 4px 24px var(--accent-glow)}
 .rec-card.full-width{grid-column:1 / -1}
+.rec-card.col-hidden{display:none}
 .rec-card-head{
   padding:1rem 1.2rem;display:flex;align-items:center;justify-content:space-between;
   border-bottom:1px solid var(--border);
@@ -407,6 +436,28 @@ input[type=file]{display:none}
 @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 .animate-in{animation:fadeUp .5s ease forwards;opacity:0}
 .delay-1{animation-delay:.1s}.delay-2{animation-delay:.2s}.delay-3{animation-delay:.3s}
+
+/* ── Overlay Properties Panel ── */
+.ov-props{
+  position:absolute;z-index:60;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:.7rem;min-width:170px;box-shadow:0 8px 32px rgba(0,0,0,.5);
+  font-size:.75rem;color:var(--text-dim);pointer-events:auto;
+}
+.props-title{font-weight:700;font-size:.8rem;color:var(--text);margin-bottom:.5rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
+.ov-props label{display:flex;align-items:center;gap:.4rem;margin-bottom:.4rem}
+.ov-props label span{font-size:.65rem;color:var(--text-muted);min-width:28px;text-align:right;font-family:'JetBrains Mono',monospace}
+.ov-props input[type=range]{flex:1;height:4px;accent-color:var(--accent)}
+.ov-props input[type=color]{width:24px;height:20px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent}
+.props-btn{
+  display:block;width:100%;padding:.35rem;margin-top:.3rem;border:none;border-radius:6px;
+  background:var(--surface3);color:var(--text-dim);font-size:.72rem;cursor:pointer;
+  font-family:inherit;transition:all .1s;text-align:center;
+}
+.props-btn:hover{background:var(--surface2);color:var(--text)}
+.props-btn.close{margin-top:.5rem;color:var(--text-muted)}
+.props-row{display:flex;gap:.3rem;margin-top:.3rem}
+.props-row .props-btn{flex:1}
 </style></head><body>
 
 
@@ -439,7 +490,9 @@ input[type=file]{display:none}
 <div class="loading-overlay" id="loading">
   <div class="loader">
     <div class="spinner"></div>
-    <p>데이터를 분석하고 최적의 차트를 추천하는 중...</p>
+    <p id="loadingMsg">준비 중...</p>
+    <div class="progress-steps" id="progressSteps"></div>
+    <div class="p-bar"><div class="p-bar-fill" id="progressBar"></div></div>
   </div>
 </div>
 
@@ -518,6 +571,7 @@ function fmtNum(v) {
 // ─────────────────────────────────────────────────────
 const columnColors = {};   // colName → hex color
 const valueColors  = {};   // "colName::value" → hex color
+const disabledColumns = new Set(); // columns excluded from charts
 let currentData = null;    // latest analysis result
 
 // Column-level color
@@ -571,135 +625,280 @@ function reRenderCharts() {
   if (!currentData) return;
   chartInstances.forEach(c => c.dispose());
   chartInstances.length = 0;
-  renderRecommendations(currentData);
+  // Only re-render the ECharts, not the DOM cards
+  currentData.recommendations.forEach((rec, i) => {
+    try { buildEChart(`echart-${i}`, rec, currentData.preview); } catch(e) {}
+  });
 }
 
 // ═══ overlay.js ═══
-// ChartForge — overlay.js
-// Annotations, dashed lines, rectangles, drag system, save/load
+// ChartForge — overlay.js v3
+// Overlays with properties panel, memo editing, copy, rotate, save/load
 
 let _drag = null;
 
-// ── Container dblclick → memo (fires on chart-container, not overlay) ──
+// ── Container dblclick → memo ──
 function onContainerDblClick(e, idx) {
-  // Ignore if clicking on toolbar, overlay children, or drag in progress
   if (_drag) return;
-  if (e.target.closest('.chart-toolbar,.chart-anno,.chart-hline,.chart-vline,.chart-rect,.anno-input')) return;
+  const tgt = e.target;
+  // Double-click on existing memo → edit
+  const anno = tgt.closest('.chart-anno');
+  if (anno) { _editMemo(anno); return; }
+  if (tgt.closest('.chart-toolbar,.chart-hline,.chart-vline,.chart-rect,.anno-input,.ov-props')) return;
   e.preventDefault(); e.stopPropagation();
-
   const overlay = document.getElementById(`overlay-${idx}`);
   if (!overlay) return;
   _spawnMemoInput(overlay, e.clientX, e.clientY);
 }
 
-// ── Toolbar button → memo at center ──
 function startMemo(idx) {
   const overlay = document.getElementById(`overlay-${idx}`);
   if (!overlay) return;
   const r = overlay.getBoundingClientRect();
-  _spawnMemoInput(overlay, r.left + r.width / 2, r.top + r.height / 2);
+  _spawnMemoInput(overlay, r.left + r.width/2, r.top + r.height/2);
 }
 
-function _spawnMemoInput(overlay, clientX, clientY) {
+function _spawnMemoInput(overlay, cx, cy, existingEl, existingText) {
   overlay.querySelectorAll('.anno-input').forEach(el => el.remove());
   const rect = overlay.getBoundingClientRect();
-  const x = clientX - rect.left, y = clientY - rect.top;
-
+  const x = cx - rect.left, y = cy - rect.top;
   const input = document.createElement('input');
   input.className = 'anno-input';
   input.style.left = x + 'px'; input.style.top = y + 'px';
-  input.placeholder = '메모 입력 후 Enter...';
   input.style.pointerEvents = 'auto';
+  input.value = existingText || '';
+  input.placeholder = '메모 입력 후 Enter...';
   overlay.appendChild(input);
-  setTimeout(() => input.focus(), 30);
-
+  setTimeout(() => { input.focus(); input.select(); }, 30);
   const commit = () => {
     const t = input.value.trim();
-    if (t) addAnno(overlay, x, y, t);
+    if (existingEl) {
+      if (t) { existingEl.querySelector('.a-text').textContent = t; existingEl.style.display = ''; }
+      else existingEl.remove();
+    } else if (t) addAnno(overlay, x, y, t);
     if (input.parentElement) input.remove();
   };
-  input.onkeydown = (ev) => {
-    if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
-    else if (ev.key === 'Escape') input.remove();
-  };
+  input.onkeydown = (ev) => { if (ev.key==='Enter'){ev.preventDefault();commit()} else if(ev.key==='Escape'){if(existingEl)existingEl.style.display='';input.remove()} };
   input.onblur = () => setTimeout(commit, 80);
 }
 
+function _editMemo(anno) {
+  const text = anno.querySelector('.a-text')?.textContent || '';
+  const overlay = anno.parentElement;
+  const r = anno.getBoundingClientRect();
+  const or = overlay.getBoundingClientRect();
+  anno.style.display = 'none';
+  _spawnMemoInput(overlay, r.left, r.top, anno, text);
+}
+
 // ── Memo ──
-function addAnno(overlay, x, y, text) {
+function addAnno(overlay, x, y, text, props) {
   const el = document.createElement('div');
   el.className = 'chart-anno'; el.dataset.type = 'anno';
-  el.style.left = Math.max(0, x - 8) + 'px';
-  el.style.top = Math.max(0, y - 28) + 'px';
+  el.style.left = Math.max(0,x-8)+'px'; el.style.top = Math.max(0,y-28)+'px';
+  if (props?.color) el.style.color = props.color;
+  if (props?.fontSize) el.style.fontSize = props.fontSize + 'px';
   el.innerHTML = `<span class="ov-grip" title="드래그">⠿</span><span class="a-text">${text}</span><span class="ov-close" title="삭제">✕</span>`;
   overlay.appendChild(el);
   el.querySelector('.ov-close').onmousedown = (e) => { e.stopPropagation(); el.remove(); };
   _bindDrag(el, overlay, 'anno', '.ov-grip');
+  // Right-click → properties
+  el.oncontextmenu = (e) => { e.preventDefault(); _showProps(el, overlay, 'anno'); };
 }
 
-// ── Horizontal line ──
-function addHLine(idx, posY) {
+// ── Lines ──
+function addHLine(idx, posY, props) {
   const overlay = document.getElementById(`overlay-${idx}`);
   if (!overlay) return;
   const el = document.createElement('div');
   el.className = 'chart-hline'; el.dataset.type = 'hline';
-  const existCount = overlay.querySelectorAll('.chart-hline').length;
-  el.style.top = (posY != null ? posY : Math.round(overlay.offsetHeight * (0.3 + existCount * 0.1))) + 'px';
+  const n = overlay.querySelectorAll('.chart-hline').length;
+  el.style.top = (posY!=null ? posY : Math.round(overlay.offsetHeight*(0.3+n*0.1)))+'px';
+  _applyLineProps(el, props);
   el.innerHTML = `<div class="line-controls"><span class="ov-grip" title="드래그">⠿</span><span class="ov-close" title="삭제">✕</span></div>`;
   overlay.appendChild(el);
   el.querySelector('.ov-close').onmousedown = (e) => { e.stopPropagation(); el.remove(); };
   _bindDrag(el, overlay, 'hline', '.ov-grip');
+  el.oncontextmenu = (e) => { e.preventDefault(); _showProps(el, overlay, 'hline'); };
 }
 
-// ── Vertical line ──
-function addVLine(idx, posX) {
+function addVLine(idx, posX, props) {
   const overlay = document.getElementById(`overlay-${idx}`);
   if (!overlay) return;
   const el = document.createElement('div');
   el.className = 'chart-vline'; el.dataset.type = 'vline';
-  const existCount = overlay.querySelectorAll('.chart-vline').length;
-  el.style.left = (posX != null ? posX : Math.round(overlay.offsetWidth * (0.3 + existCount * 0.1))) + 'px';
+  const n = overlay.querySelectorAll('.chart-vline').length;
+  el.style.left = (posX!=null ? posX : Math.round(overlay.offsetWidth*(0.3+n*0.1)))+'px';
+  _applyLineProps(el, props, true);
   el.innerHTML = `<div class="line-controls"><span class="ov-grip" title="드래그">⠿</span><span class="ov-close" title="삭제">✕</span></div>`;
   overlay.appendChild(el);
   el.querySelector('.ov-close').onmousedown = (e) => { e.stopPropagation(); el.remove(); };
   _bindDrag(el, overlay, 'vline', '.ov-grip');
+  el.oncontextmenu = (e) => { e.preventDefault(); _showProps(el, overlay, 'vline'); };
+}
+
+function _applyLineProps(el, props, isVertical) {
+  const w = props?.lineWidth || 0.5;
+  const c = props?.lineColor || 'var(--rose)';
+  if (isVertical) el.style.borderLeft = `${w}px dashed ${c}`;
+  else el.style.borderTop = `${w}px dashed ${c}`;
 }
 
 // ── Rectangle ──
-function addRect(idx, posX, posY, rw, rh) {
+function addRect(idx, posX, posY, rw, rh, props) {
   const overlay = document.getElementById(`overlay-${idx}`);
   if (!overlay) return;
   const w = overlay.offsetWidth, h = overlay.offsetHeight;
   const el = document.createElement('div');
   el.className = 'chart-rect'; el.dataset.type = 'rect';
-  const existRects = overlay.querySelectorAll('.chart-rect').length;
-  el.style.left = (posX != null ? posX : Math.round(w * 0.2 + existRects * 20)) + 'px';
-  el.style.top = (posY != null ? posY : Math.round(h * 0.2 + existRects * 20)) + 'px';
-  el.style.width = (rw != null ? rw : Math.round(w * 0.4)) + 'px';
-  el.style.height = (rh != null ? rh : Math.round(h * 0.4)) + 'px';
+  const n = overlay.querySelectorAll('.chart-rect').length;
+  el.style.left = (posX!=null?posX:Math.round(w*0.2+n*20))+'px';
+  el.style.top = (posY!=null?posY:Math.round(h*0.2+n*20))+'px';
+  el.style.width = (rw!=null?rw:Math.round(w*0.4))+'px';
+  el.style.height = (rh!=null?rh:Math.round(h*0.4))+'px';
+  _applyRectProps(el, props);
   el.innerHTML = `<div class="rect-controls"><span class="ov-grip" title="드래그">⠿</span><span class="ov-close" title="삭제">✕</span></div><span class="rect-resize"></span>`;
   overlay.appendChild(el);
   el.querySelector('.ov-close').onmousedown = (e) => { e.stopPropagation(); el.remove(); };
   _bindDrag(el, overlay, 'rect', '.ov-grip');
   el.querySelector('.rect-resize').onmousedown = (e) => {
     e.stopPropagation(); e.preventDefault();
-    _drag = { type: 'resize', el, startW: el.offsetWidth, startH: el.offsetHeight, startX: e.clientX, startY: e.clientY };
+    _drag = { type:'resize', el, startW:el.offsetWidth, startH:el.offsetHeight, startX:e.clientX, startY:e.clientY };
   };
+  el.oncontextmenu = (e) => { e.preventDefault(); _showProps(el, overlay, 'rect'); };
 }
 
-// ── Drag engine: only grip handle initiates drag ──
+function _applyRectProps(el, props) {
+  const w = props?.lineWidth || 0.5;
+  const c = props?.lineColor || 'var(--rose)';
+  const fill = props?.fillColor || 'transparent';
+  const opacity = props?.fillOpacity ?? 0.04;
+  const rot = props?.rotate || 0;
+  el.style.border = `${w}px dashed ${c}`;
+  el.style.background = fill === 'transparent' ? `rgba(248,113,113,${opacity})` : _hex2rgba(fill, opacity);
+  if (rot) el.style.transform = `rotate(${rot}deg)`;
+}
+
+function _hex2rgba(hex, a) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// ═══ Properties Panel (right-click) ═══
+function _showProps(el, overlay, kind) {
+  document.querySelectorAll('.ov-props').forEach(p => p.remove());
+  const panel = document.createElement('div');
+  panel.className = 'ov-props';
+  panel.style.pointerEvents = 'auto';
+
+  const elRect = el.getBoundingClientRect();
+  const ovRect = overlay.getBoundingClientRect();
+  panel.style.left = Math.min(elRect.left - ovRect.left + 20, ovRect.width - 180) + 'px';
+  panel.style.top = Math.min(elRect.bottom - ovRect.top + 4, ovRect.height - 200) + 'px';
+
+  let html = '<div class="props-title">속성</div>';
+
+  if (kind === 'hline' || kind === 'vline') {
+    const curW = parseFloat(el.style.borderTopWidth || el.style.borderLeftWidth) || 0.5;
+    html += `<label>선 굵기 <input type="range" min="0.5" max="5" step="0.5" value="${curW}" onchange="this.parentElement.querySelector('span').textContent=this.value+'px'" oninput="_setProp(this,'lineWidth')"> <span>${curW}px</span></label>`;
+    html += `<label>선 색상 <input type="color" value="#f87171" onchange="_setProp(this,'lineColor')"></label>`;
+  }
+
+  if (kind === 'rect') {
+    const curW = parseFloat(el.style.borderWidth) || 0.5;
+    html += `<label>선 굵기 <input type="range" min="0.5" max="5" step="0.5" value="${curW}" onchange="this.parentElement.querySelector('span').textContent=this.value+'px'" oninput="_setProp(this,'lineWidth')"> <span>${curW}px</span></label>`;
+    html += `<label>선 색상 <input type="color" value="#f87171" onchange="_setProp(this,'lineColor')"></label>`;
+    html += `<label>채우기 <input type="color" value="#f87171" onchange="_setProp(this,'fillColor')"></label>`;
+    html += `<label>투명도 <input type="range" min="0" max="1" step="0.05" value="0.04" oninput="_setProp(this,'fillOpacity')"></label>`;
+    html += `<button class="props-btn" onclick="_setProp(this,'clearFill')">채우기 제거</button>`;
+    html += `<div class="props-row"><button class="props-btn" onclick="_setProp(this,'rotateL')">↺ 좌회전</button><button class="props-btn" onclick="_setProp(this,'rotateR')">↻ 우회전</button></div>`;
+  }
+
+  if (kind === 'anno') {
+    html += `<label>글자 색상 <input type="color" value="#e8e9f0" onchange="_setProp(this,'textColor')"></label>`;
+  }
+
+  html += `<button class="props-btn" onclick="_setProp(this,'copy')">📋 복사</button>`;
+  html += `<button class="props-btn close" onclick="this.closest('.ov-props').remove()">닫기</button>`;
+
+  panel.innerHTML = html;
+  panel.dataset.targetType = kind;
+  panel._target = el;
+  overlay.appendChild(panel);
+
+  // Close on outside click
+  setTimeout(() => {
+    const close = (ev) => {
+      if (!panel.contains(ev.target)) { panel.remove(); document.removeEventListener('mousedown', close, true); }
+    };
+    document.addEventListener('mousedown', close, true);
+  }, 50);
+}
+
+function _setProp(input, prop) {
+  const panel = input.closest('.ov-props');
+  const el = panel._target;
+  const overlay = panel.parentElement;
+  const kind = panel.dataset.targetType;
+
+  if (prop === 'lineWidth') {
+    const v = input.value + 'px dashed ' + (el.style.borderTopColor || el.style.borderLeftColor || el.style.borderColor || '#f87171');
+    if (kind==='hline') el.style.borderTop = v;
+    else if (kind==='vline') el.style.borderLeft = v;
+    else el.style.border = v;
+  } else if (prop === 'lineColor') {
+    const w = parseFloat(el.style.borderTopWidth||el.style.borderLeftWidth||el.style.borderWidth)||0.5;
+    const v = `${w}px dashed ${input.value}`;
+    if (kind==='hline') el.style.borderTop = v;
+    else if (kind==='vline') el.style.borderLeft = v;
+    else el.style.border = v;
+  } else if (prop === 'fillColor') {
+    const opacity = panel.querySelector('input[type=range][oninput*=fillOpacity]')?.value || 0.1;
+    el.style.background = _hex2rgba(input.value, opacity);
+  } else if (prop === 'fillOpacity') {
+    const colorInput = panel.querySelector('input[type=color][onchange*=fillColor]');
+    const c = colorInput?.value || '#f87171';
+    el.style.background = _hex2rgba(c, input.value);
+  } else if (prop === 'clearFill') {
+    el.style.background = 'transparent';
+  } else if (prop === 'textColor') {
+    el.style.color = input.value;
+  } else if (prop === 'rotateL') {
+    const cur = parseFloat(el.style.transform?.match(/rotate\((-?\d+)/)?.[1]) || 0;
+    el.style.transform = `rotate(${cur - 15}deg)`;
+  } else if (prop === 'rotateR') {
+    const cur = parseFloat(el.style.transform?.match(/rotate\((-?\d+)/)?.[1]) || 0;
+    el.style.transform = `rotate(${cur + 15}deg)`;
+  } else if (prop === 'copy') {
+    const clone = el.cloneNode(true);
+    clone.style.left = (parseFloat(el.style.left)||0) + 15 + 'px';
+    clone.style.top = (parseFloat(el.style.top)||0) + 15 + 'px';
+    overlay.appendChild(clone);
+    // Re-bind events
+    const idx = parseInt(overlay.id.replace('overlay-',''));
+    clone.querySelector('.ov-close').onmousedown = (e) => { e.stopPropagation(); clone.remove(); };
+    _bindDrag(clone, overlay, kind, '.ov-grip');
+    if (kind==='rect') {
+      const rh = clone.querySelector('.rect-resize');
+      if (rh) rh.onmousedown = (e) => {
+        e.stopPropagation(); e.preventDefault();
+        _drag = { type:'resize', el:clone, startW:clone.offsetWidth, startH:clone.offsetHeight, startX:e.clientX, startY:e.clientY };
+      };
+    }
+    clone.oncontextmenu = (e) => { e.preventDefault(); _showProps(clone, overlay, kind); };
+    panel.remove();
+    showToast('복사되었습니다');
+  }
+}
+
+// ── Drag engine ──
 function _bindDrag(el, overlay, kind, gripSelector) {
   const grip = el.querySelector(gripSelector);
   if (!grip) return;
   grip.onmousedown = (e) => {
     e.preventDefault(); e.stopPropagation();
-    _drag = {
-      type: kind, el, overlay,
-      oRect: overlay.getBoundingClientRect(),
-      startX: e.clientX, startY: e.clientY,
-      origLeft: parseFloat(el.style.left) || 0,
-      origTop: parseFloat(el.style.top) || 0,
-    };
+    _drag = { type:kind, el, overlay, oRect:overlay.getBoundingClientRect(),
+      startX:e.clientX, startY:e.clientY, origLeft:parseFloat(el.style.left)||0, origTop:parseFloat(el.style.top)||0 };
     el.classList.add('dragging');
   };
 }
@@ -707,155 +906,86 @@ function _bindDrag(el, overlay, kind, gripSelector) {
 document.addEventListener('mousemove', (e) => {
   if (!_drag) return;
   e.preventDefault();
-
-  if (_drag.type === 'resize') {
-    _drag.el.style.width = Math.max(30, _drag.startW + e.clientX - _drag.startX) + 'px';
-    _drag.el.style.height = Math.max(20, _drag.startH + e.clientY - _drag.startY) + 'px';
+  if (_drag.type==='resize') {
+    _drag.el.style.width = Math.max(30, _drag.startW+e.clientX-_drag.startX)+'px';
+    _drag.el.style.height = Math.max(20, _drag.startH+e.clientY-_drag.startY)+'px';
     return;
   }
-
-  const { el, oRect, startX, startY, origLeft, origTop, type } = _drag;
-  const dx = e.clientX - startX, dy = e.clientY - startY;
-
-  if (type === 'hline') {
-    el.style.top = Math.max(0, Math.min(origTop + dy, oRect.height - 2)) + 'px';
-  } else if (type === 'vline') {
-    el.style.left = Math.max(0, Math.min(origLeft + dx, oRect.width - 2)) + 'px';
-  } else {
-    el.style.left = Math.max(0, Math.min(origLeft + dx, oRect.width - 30)) + 'px';
-    el.style.top = Math.max(0, Math.min(origTop + dy, oRect.height - 20)) + 'px';
-  }
+  const {el,oRect,startX,startY,origLeft,origTop,type}=_drag;
+  const dx=e.clientX-startX, dy=e.clientY-startY;
+  if (type==='hline') el.style.top = Math.max(0,Math.min(origTop+dy,oRect.height-2))+'px';
+  else if (type==='vline') el.style.left = Math.max(0,Math.min(origLeft+dx,oRect.width-2))+'px';
+  else { el.style.left=Math.max(0,Math.min(origLeft+dx,oRect.width-30))+'px'; el.style.top=Math.max(0,Math.min(origTop+dy,oRect.height-20))+'px'; }
 });
+document.addEventListener('mouseup', () => { if(_drag&&_drag.el)_drag.el.classList.remove('dragging'); _drag=null; });
 
-document.addEventListener('mouseup', () => {
-  if (_drag && _drag.el) _drag.el.classList.remove('dragging');
-  _drag = null;
-});
-
-// ═══ Save / Load ═══
-function saveAllOverlays() {
-  const all = {};
-  document.querySelectorAll('.chart-overlay').forEach(ov => {
-    const idx = ov.id.replace('overlay-', '');
-    const items = [];
-    ov.querySelectorAll('[data-type]').forEach(el => {
-      const o = { type: el.dataset.type, left: parseFloat(el.style.left)||0, top: parseFloat(el.style.top)||0 };
-      if (o.type === 'anno') o.text = el.querySelector('.a-text')?.textContent || '';
-      if (o.type === 'rect') { o.width = parseFloat(el.style.width)||100; o.height = parseFloat(el.style.height)||60; }
-      items.push(o);
-    });
-    if (items.length) all[idx] = items;
-  });
-  return all;
-}
-
-function loadAllOverlays(all) {
-  Object.entries(all).forEach(([idx, items]) => {
-    const ov = document.getElementById(`overlay-${idx}`);
-    if (!ov) return;
-    ov.querySelectorAll('[data-type]').forEach(el => el.remove());
-    const i = parseInt(idx);
-    items.forEach(item => {
-      if (item.type === 'anno') addAnno(ov, item.left + 8, item.top + 28, item.text);
-      else if (item.type === 'hline') addHLine(i, item.top);
-      else if (item.type === 'vline') addVLine(i, item.left);
-      else if (item.type === 'rect') addRect(i, item.left, item.top, item.width, item.height);
-    });
-  });
-}
-
+// ═══ Save/Load (per chart) ═══
 function exportOverlaysJSON(idx) {
   closeAllMenus();
   const ov = document.getElementById(`overlay-${idx}`);
   if (!ov) return;
   const items = [];
   ov.querySelectorAll('[data-type]').forEach(el => {
-    const o = { type: el.dataset.type, left: parseFloat(el.style.left)||0, top: parseFloat(el.style.top)||0 };
-    if (o.type === 'anno') o.text = el.querySelector('.a-text')?.textContent || '';
-    if (o.type === 'rect') { o.width = parseFloat(el.style.width)||100; o.height = parseFloat(el.style.height)||60; }
+    const o = {type:el.dataset.type, left:parseFloat(el.style.left)||0, top:parseFloat(el.style.top)||0};
+    if (o.type==='anno') { o.text=el.querySelector('.a-text')?.textContent||''; o.color=el.style.color||''; }
+    if (o.type==='rect') { o.width=parseFloat(el.style.width)||100; o.height=parseFloat(el.style.height)||60; o.bg=el.style.background||''; o.border=el.style.border||''; o.transform=el.style.transform||''; }
+    if (o.type==='hline') o.borderTop=el.style.borderTop||'';
+    if (o.type==='vline') o.borderLeft=el.style.borderLeft||'';
     items.push(o);
   });
-  if (!items.length) {
-    showToast('이 차트에 저장할 오버레이가 없습니다');
-    return;
-  }
+  if (!items.length) { showToast('저장할 오버레이가 없습니다'); return; }
   const card = document.querySelector(`.rec-card[data-idx="${idx}"]`);
-  const title = card?.querySelector('.rec-title')?.textContent || 'chart';
-  const blob = new Blob([JSON.stringify(items, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `overlay_${title}_${idx}.json`; a.click();
-  URL.revokeObjectURL(a.href);
-  showToast(`오버레이 ${items.length}개가 저장되었습니다`);
+  const title = card?.querySelector('.rec-title')?.textContent||'chart';
+  const blob = new Blob([JSON.stringify(items,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`overlay_${title}_${idx}.json`; a.click();
+  showToast(`오버레이 ${items.length}개 저장됨`);
 }
 
 function importOverlaysJSON(idx) {
   closeAllMenus();
   const ov = document.getElementById(`overlay-${idx}`);
   if (!ov) return;
-
-  const existCount = ov.querySelectorAll('[data-type]').length;
-  if (existCount > 0) {
-    if (!confirm(`이 차트에 오버레이 ${existCount}개가 있습니다.\n삭제하고 새로 로드하시겠습니까?`)) return;
-    // 확인 → 즉시 삭제
-    ov.querySelectorAll('[data-type]').forEach(el => el.remove());
-  }
-
-  // 파일 선택 창 오픈
-  const input = document.createElement('input');
-  input.type = 'file'; input.accept = '.json';
-  input.style.display = 'none';
+  const n = ov.querySelectorAll('[data-type]').length;
+  if (n>0 && !confirm(`오버레이 ${n}개가 있습니다. 삭제하고 로드하시겠습니까?`)) return;
+  ov.querySelectorAll('[data-type]').forEach(el=>el.remove());
+  const input=document.createElement('input'); input.type='file'; input.accept='.json'; input.style.display='none';
   document.body.appendChild(input);
-
-  input.onchange = () => {
-    const file = input.files[0];
-    document.body.removeChild(input);
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (evt) => {
+  input.onchange=()=>{
+    const file=input.files[0]; document.body.removeChild(input); if(!file)return;
+    const r=new FileReader();
+    r.onload=(evt)=>{
       try {
-        const items = JSON.parse(evt.target.result);
-        if (!Array.isArray(items)) throw new Error('invalid');
-        items.forEach(item => {
-          if (item.type === 'anno') addAnno(ov, item.left + 8, item.top + 28, item.text);
-          else if (item.type === 'hline') addHLine(idx, item.top);
-          else if (item.type === 'vline') addVLine(idx, item.left);
-          else if (item.type === 'rect') addRect(idx, item.left, item.top, item.width, item.height);
+        const items=JSON.parse(evt.target.result); if(!Array.isArray(items))throw 0;
+        items.forEach(it=>{
+          if(it.type==='anno') { addAnno(ov,it.left+8,it.top+28,it.text,{color:it.color}); }
+          else if(it.type==='hline') { addHLine(idx,it.top); const last=ov.querySelector('.chart-hline:last-child'); if(last&&it.borderTop) last.style.borderTop=it.borderTop; }
+          else if(it.type==='vline') { addVLine(idx,it.left); const last=ov.querySelector('.chart-vline:last-child'); if(last&&it.borderLeft) last.style.borderLeft=it.borderLeft; }
+          else if(it.type==='rect') { addRect(idx,it.left,it.top,it.width,it.height); const last=ov.querySelector('.chart-rect:last-child'); if(last){if(it.bg)last.style.background=it.bg; if(it.border)last.style.border=it.border; if(it.transform)last.style.transform=it.transform;} }
         });
-        showToast(`오버레이 ${items.length}개가 로드되었습니다`);
-      } catch (err) {
-        console.error('Overlay load error:', err);
-        showToast('오버레이 파일을 읽을 수 없습니다');
-      }
+        showToast(`오버레이 ${items.length}개 로드됨`);
+      } catch(e){ showToast('파일을 읽을 수 없습니다'); }
     };
-    reader.readAsText(file);
+    r.readAsText(file);
   };
-
-  setTimeout(() => input.click(), 50);
+  setTimeout(()=>input.click(),50);
 }
 
-// ═══ Clear all overlays for a chart ═══
 function clearOverlays(idx) {
-  const ov = document.getElementById(`overlay-${idx}`);
-  if (!ov) return;
-  const count = ov.querySelectorAll('[data-type]').length;
-  if (count === 0) {
-    showToast('제거할 오버레이가 없습니다');
-    return;
-  }
-  if (!confirm(`오버레이 ${count}개를 모두 제거하시겠습니까?`)) return;
-  ov.querySelectorAll('[data-type]').forEach(el => el.remove());
-  showToast(`오버레이 ${count}개가 제거되었습니다`);
+  const ov=document.getElementById(`overlay-${idx}`);
+  if(!ov)return;
+  const n=ov.querySelectorAll('[data-type]').length;
+  if(!n){showToast('제거할 오버레이가 없습니다');return;}
+  if(!confirm(`오버레이 ${n}개를 모두 제거하시겠습니까?`))return;
+  ov.querySelectorAll('[data-type]').forEach(el=>el.remove());
+  showToast(`${n}개 제거됨`);
 }
 
-// ═══ Toggle overlay visibility ═══
 function toggleOverlayVisibility(idx, btn) {
-  const overlay = document.getElementById(`overlay-${idx}`);
-  if (!overlay) return;
-  const hidden = overlay.style.display === 'none';
-  overlay.style.display = hidden ? '' : 'none';
-  btn.classList.toggle('active', hidden);
-  btn.textContent = hidden ? '👁' : '🚫';
-  btn.title = hidden ? '오버레이 보기/숨기기' : '오버레이 숨김 중 (클릭하여 표시)';
+  const ov=document.getElementById(`overlay-${idx}`);
+  if(!ov)return;
+  const hidden=ov.style.display==='none';
+  ov.style.display=hidden?'':'none';
+  btn.textContent=hidden?'👁':'🚫';
 }
 
 // ═══ charts.js ═══
@@ -1811,6 +1941,143 @@ function buildEChart(domId, rec, preview) {
     };
   }
 
+  // ── 100% STACKED BAR ──
+  else if (type === 'percent_bar') {
+    const labels = limit([...new Set(getCol(m.x))], 20);
+    const groups = [...new Set(getCol(m.group))].slice(0, 8);
+    // Calculate totals per label
+    const totals = labels.map(l => {
+      return groups.reduce((s, g) => {
+        const vals = rows.filter(r => String(r[m.x])===String(l) && String(r[m.group])===String(g)).map(r=>Number(r[m.y[0]])).filter(v=>!isNaN(v));
+        return s + (vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0);
+      }, 0);
+    });
+    option = {
+      tooltip: { trigger:'axis', axisPointer:{type:'shadow'}, formatter: (params) => {
+        let s = params[0].name + '<br>';
+        params.forEach(p => { s += `${p.marker} ${p.seriesName}: ${p.value.toFixed(1)}%<br>`; });
+        return s;
+      }},
+      legend: { show:true, bottom:0 },
+      grid: { top:15, right:20, bottom:40, left:50, containLabel:true },
+      xAxis: { type:'category', data:labels },
+      yAxis: { type:'value', max:100, axisLabel:{formatter:'{value}%'} },
+      series: groups.map((g, i) => ({
+        name:g, type:'bar', stack:'pct',
+        data: labels.map((l, li) => {
+          const vals = rows.filter(r => String(r[m.x])===String(l) && String(r[m.group])===String(g)).map(r=>Number(r[m.y[0]])).filter(v=>!isNaN(v));
+          const avg = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
+          return totals[li] ? +(avg/totals[li]*100).toFixed(1) : 0;
+        }),
+        itemStyle: { color: VC(m.group, g) },
+        barMaxWidth: 40,
+      })),
+    };
+  }
+
+  // ── WORD CLOUD ──
+  else if (type === 'wordcloud') {
+    const col = m.x;
+    const freq = {};
+    rows.forEach(r => { const v = r[col]; if (v != null) freq[String(v)] = (freq[String(v)]||0)+1; });
+    const words = Object.entries(freq).map(([name,value]) => ({name, value})).sort((a,b) => b.value-a.value).slice(0, 80);
+    const maxV = Math.max(...words.map(w => w.value), 1);
+    option = {
+      tooltip: { formatter: p => `${p.name}: ${p.value}` },
+      series: [{
+        type: 'wordCloud',
+        shape: 'circle',
+        left: 'center', top: 'center', width: '90%', height: '85%',
+        sizeRange: [12, 52],
+        rotationRange: [-30, 30],
+        gridSize: 8,
+        textStyle: {
+          fontFamily: "'Noto Sans KR', sans-serif",
+          fontWeight: 700,
+          color: () => PALETTE[Math.floor(Math.random()*PALETTE.length)],
+        },
+        emphasis: { textStyle: { shadowBlur: 10, shadowColor: '#000' } },
+        data: words,
+      }],
+    };
+  }
+
+  // ── CROSS HEATMAP (cat × cat) ──
+  else if (type === 'cross_heatmap') {
+    const xCats = [...new Set(getCol(m.x))].slice(0, 12);
+    const yCats = [...new Set(getCol(m.group))].slice(0, 12);
+    const data = []; let minV = Infinity, maxV = -Infinity;
+    xCats.forEach((xc, xi) => {
+      yCats.forEach((yc, yi) => {
+        const vals = rows.filter(r => String(r[m.x])===String(xc) && String(r[m.group])===String(yc)).map(r=>Number(r[m.y[0]])).filter(v=>!isNaN(v));
+        const avg = vals.length ? +(vals.reduce((s,v)=>s+v,0)/vals.length).toFixed(1) : 0;
+        data.push([xi, yi, avg]);
+        if (avg<minV) minV=avg; if (avg>maxV) maxV=avg;
+      });
+    });
+    option = {
+      tooltip: { formatter: p => `${xCats[p.value[0]]} × ${yCats[p.value[1]]}<br>값: ${p.value[2]}` },
+      grid: { top:10, right:80, bottom:50, left:80, containLabel:true },
+      xAxis: { type:'category', data:xCats, axisLabel:{rotate:30,fontSize:9} },
+      yAxis: { type:'category', data:yCats, axisLabel:{fontSize:9} },
+      visualMap: { min:minV, max:maxV, calculable:true, orient:'vertical', right:0, top:'center',
+        textStyle:{color:'#8b8d9e',fontSize:9}, inRange:{color:['#1a1b24','#4f7df980','#4f7df9']}, itemHeight:140 },
+      series: [{ type:'heatmap', data:data,
+        label:{show:true,color:'#e8e9f0',fontSize:9,formatter:p=>p.value[2]},
+        emphasis:{itemStyle:{shadowBlur:10}} }],
+    };
+  }
+
+  // ── SLOPE CHART ──
+  else if (type === 'slope' && m.y.length >= 2) {
+    const cats = [...new Set(getCol(m.x))].slice(0, 10);
+    const col1 = m.y[0], col2 = m.y[1];
+    option = {
+      tooltip: {},
+      grid: { top:30, right:80, bottom:20, left:80 },
+      xAxis: { type:'category', data:[col1, col2], axisLine:{lineStyle:{color:'#2a2b38'}},
+        axisLabel:{fontSize:11,color:'#8b8d9e',fontWeight:600} },
+      yAxis: { type:'value', show:false },
+      series: cats.map((c, i) => {
+        const v1 = rows.filter(r=>String(r[m.x])===String(c)).map(r=>Number(r[col1])).filter(v=>!isNaN(v));
+        const v2 = rows.filter(r=>String(r[m.x])===String(c)).map(r=>Number(r[col2])).filter(v=>!isNaN(v));
+        const a1 = v1.length ? v1.reduce((s,v)=>s+v,0)/v1.length : 0;
+        const a2 = v2.length ? v2.reduce((s,v)=>s+v,0)/v2.length : 0;
+        const clr = VC(m.x, c);
+        return {
+          name:c, type:'line', data:[+a1.toFixed(1), +a2.toFixed(1)],
+          lineStyle:{width:2,color:clr}, itemStyle:{color:clr},
+          symbol:'circle', symbolSize:10,
+          label:{show:true,position:'right',formatter:p=>p.dataIndex===1?c:'',color:clr,fontSize:10},
+          endLabel:{show:true,formatter:'{a}',color:clr,fontSize:10},
+        };
+      }),
+    };
+  }
+
+  // ── KPI CARDS ──
+  else if (type === 'kpi_cards') {
+    const numCols = m.y.slice(0, 6);
+    // Use custom graphic elements instead of standard chart
+    const cardW = 100/(Math.min(numCols.length, 3));
+    const graphics = [];
+    numCols.forEach((col, i) => {
+      const vals = getClean(col);
+      const avg = vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : 0;
+      const max = vals.length ? Math.max(...vals) : 0;
+      const min = vals.length ? Math.min(...vals) : 0;
+      const row = Math.floor(i/3), colIdx = i%3;
+      const cx = (colIdx+0.5)*100/Math.min(numCols.length,3);
+      const cy = numCols.length>3 ? (row===0?30:70) : 50;
+      graphics.push(
+        {type:'text', left:cx+'%', top:(cy-12)+'%', style:{text:col,fill:'#8b8d9e',fontSize:11,fontWeight:500,textAlign:'center',fontFamily:"'Noto Sans KR'"}},
+        {type:'text', left:cx+'%', top:cy+'%', style:{text:fmtNum(avg),fill:'#e8e9f0',fontSize:24,fontWeight:700,textAlign:'center',fontFamily:"'JetBrains Mono',monospace"}},
+        {type:'text', left:cx+'%', top:(cy+10)+'%', style:{text:`↓${fmtNum(min)}  ↑${fmtNum(max)}`,fill:'#5a5c6e',fontSize:9,textAlign:'center',fontFamily:"'JetBrains Mono'"}}
+      );
+    });
+    option = { graphic: graphics };
+  }
+
   if (option) {
     option.animationDuration = 800;
     option.animationEasing = 'cubicOut';
@@ -1860,46 +2127,211 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 async function uploadFile(file) {
-  const loading = document.getElementById('loading');
-  const loaderMsg = loading.querySelector('p');
   const sizeMB = (file.size / 1024 / 1024).toFixed(1);
-  loaderMsg.innerHTML = `<strong>${file.name}</strong> (${sizeMB}MB) 분석 중...` +
-    (file.size > 10*1024*1024 ? '<br><span style="font-size:.8rem;color:var(--amber)">대용량 파일 — 스마트 샘플링 적용 중</span>' : '');
-  loading.classList.add('active');
+  _progressStart(`${file.name} (${sizeMB}MB)`);
   const form = new FormData();
   form.append('file', file);
   try {
+    _progressStep('upload', '서버로 파일 전송 중...');
     const res = await fetch(API_BASE + '/api/analyze', { method: 'POST', body: form });
     if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || `HTTP ${res.status}`); }
-    renderResults(await res.json());
+    _progressDone('upload');
+
+    _progressStep('parse', 'API 응답 파싱 중...');
+    const data = await res.json();
+    _progressDone('parse');
+
+    await renderResultsAsync(data);
   } catch (e) { alert('오류: ' + e.message); }
-  finally { loading.classList.remove('active'); }
+  finally { _progressEnd(); }
 }
 
 // ─────────────────────────────────────────────────────
-// Render Pipeline
+// Non-blocking Render Pipeline
 // ─────────────────────────────────────────────────────
+function _yield() { return new Promise(r => setTimeout(r, 0)); }
+
+// Public entry point (called from demo button too)
 function renderResults(data) {
-  // Dispose previous charts
+  _progressStart(data.filename || '데이터');
+  // Mark upload/parse as already done (data is pre-loaded)
+  _progressStep('upload', '데이터 로드됨');
+  _progressDone('upload');
+  _progressStep('parse', '파싱 완료');
+  _progressDone('parse');
+  renderResultsAsync(data).then(() => _progressEnd());
+}
+
+async function renderResultsAsync(data) {
   chartInstances.forEach(c => c.dispose());
   chartInstances.length = 0;
-
-  // Store globally and init colors
   currentData = data;
-  initColumnColors(data.column_analysis);
-  initValueColors(data.column_analysis);
 
   const results = document.getElementById('results');
   results.classList.add('active');
-  results.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
+  // Step 1: Colors
+  _progressStep('colors', '색상 시스템 초기화...');
+  initColumnColors(data.column_analysis);
+  initValueColors(data.column_analysis);
+  _progressDone('colors');
+  await _yield();
+
+  // Step 2: Summary
+  _progressStep('summary', '파일 요약 생성...');
   renderSummary(data);
-  renderColumns(data.column_analysis);
-  renderRecommendations(data);
-  renderTable(data.preview);
+  _progressDone('summary');
+  await _yield();
 
-  // Resize handler
+  // Step 3: Columns
+  _progressStep('columns', `컬럼 분석 렌더링 (${data.column_analysis.length}개)...`);
+  renderColumns(data.column_analysis);
+  _progressDone('columns');
+  await _yield();
+
+  // Step 4: Chart cards (DOM only, no rendering yet)
+  _progressStep('cards', `차트 카드 생성 (${data.recommendations.length}개)...`);
+  _createChartCards(data);
+  _progressDone('cards');
+  await _yield();
+
+  // Step 5: Render charts one by one (non-blocking)
+  const total = data.recommendations.length;
+  for (let i = 0; i < total; i++) {
+    const rec = data.recommendations[i];
+    const chartId = `echart-${i}`;
+    _progressStep('chart', `차트 렌더링 ${i + 1}/${total}: ${rec.name_ko}...`, Math.round((i / total) * 100));
+    try { buildEChart(chartId, rec, data.preview); } catch (e) { console.warn(`Chart ${i} failed:`, e); }
+    // Yield every chart to prevent blocking
+    if (i % 2 === 0) await _yield();
+  }
+  _progressDone('chart');
+  await _yield();
+
+  // Step 6: Table
+  _progressStep('table', '데이터 테이블 생성...');
+  renderTable(data.preview);
+  _progressDone('table');
+
+  results.scrollIntoView({ behavior: 'smooth', block: 'start' });
   window.addEventListener('resize', () => chartInstances.forEach(c => c.resize()));
+}
+
+function _createChartCards(data) {
+  const el = document.getElementById('recsGrid');
+  el.innerHTML = '';
+
+  data.recommendations.forEach((rec, idx) => {
+    const card = document.createElement('div');
+    const wideTypes = ['sankey','parallel','themeriver','treemap','sunburst','heatmap','calendar_heatmap','cross_heatmap','kpi_cards','wordcloud'];
+    card.className = `rec-card animate-in${wideTypes.includes(rec.chart_type) ? ' full-width' : ''}`;
+    card.style.animationDelay = `${idx * 0.04}s`;
+    card.dataset.idx = idx;
+
+    const scoreClass = rec.score >= 85 ? 'high' : rec.score >= 70 ? 'mid' : 'low';
+    const mappingHtml = Object.entries(rec.mapping).map(([axis, fields]) => {
+      const fs = Array.isArray(fields) ? fields : [fields];
+      return fs.map(f => `<span class="mapping-tag"><span class="axis">${axis}</span><span class="field">${f}</span></span>`).join('');
+    }).join('');
+
+    const chartId = `echart-${idx}`;
+    const chartHeight = ['sankey','heatmap','parallel','themeriver','treemap','sunburst','calendar_heatmap','cross_heatmap'].includes(rec.chart_type) ? '380px' : '300px';
+
+    card.innerHTML = `
+      <div class="rec-card-head">
+        <div class="rec-info" onclick="toggleCollapse(${idx})">
+          <span class="rec-icon">${rec.icon}</span>
+          <div><div class="rec-title">${rec.name_ko}</div><div class="rec-subtitle">${rec.name}</div></div>
+        </div>
+        <div class="rec-actions" onclick="event.stopPropagation()">
+          <span class="rec-score ${scoreClass}">${rec.score}</span>
+          <div class="menu-wrap">
+            <button class="menu-btn" onclick="toggleMenu(${idx}, this)" title="메뉴">⋯</button>
+            <div class="menu-dropdown" id="menu-${idx}">
+              <button class="menu-item" onclick="saveChartImage(${idx})"><span class="mi-icon">📷</span>이미지로 저장</button>
+              <button class="menu-item" onclick="copyChartCode(${idx})"><span class="mi-icon">📋</span>코드 복사</button>
+              <button class="menu-item" onclick="exportChartCSV(${idx})"><span class="mi-icon">💾</span>데이터 CSV 저장</button>
+              <div style="border-top:1px solid var(--border);margin:.3rem 0"></div>
+              <button class="menu-item" onclick="exportOverlaysJSON(${idx})"><span class="mi-icon">📤</span>오버레이 저장</button>
+              <button class="menu-item" onclick="importOverlaysJSON(${idx})"><span class="mi-icon">📥</span>오버레이 로드</button>
+            </div>
+          </div>
+          <button class="collapse-btn" onclick="toggleCollapse(${idx})" title="접기/펼치기">▼</button>
+        </div>
+      </div>
+      <div class="rec-body">
+        <div class="rec-reason">${rec.reason}</div>
+        <div class="rec-mapping">${mappingHtml}</div>
+        <div class="chart-container" style="height:${chartHeight}" ondblclick="onContainerDblClick(event,${idx})">
+          <div id="${chartId}" style="width:100%;height:100%"></div>
+          <div class="chart-overlay" id="overlay-${idx}"></div>
+          <div class="chart-toolbar">
+            <button class="tb-btn" onclick="toggleOverlayVisibility(${idx}, this)" title="오버레이 보기/숨기기">👁</button>
+            <button class="tb-btn" onclick="startMemo(${idx})" title="메모 추가">✎</button>
+            <button class="tb-btn" onclick="addHLine(${idx})" title="가로 점선">━</button>
+            <button class="tb-btn" onclick="addVLine(${idx})" title="세로 점선">┃</button>
+            <button class="tb-btn" onclick="addRect(${idx})" title="점선 박스">▢</button>
+            <button class="tb-btn" onclick="clearOverlays(${idx})" title="오버레이 모두 제거">🗑</button>
+          </div>
+        </div>
+      </div>`;
+    el.appendChild(card);
+    card._rec = rec;
+    card._chartId = chartId;
+  });
+}
+
+// ─────────────────────────────────────────────────────
+// Progress Tracker
+// ─────────────────────────────────────────────────────
+const STEP_LABELS = {
+  upload: '📤 파일 전송', parse: '📋 응답 파싱', colors: '🎨 색상 초기화',
+  summary: '📊 파일 요약', columns: '🔬 컬럼 분석', cards: '🃏 차트 카드 생성',
+  chart: '📈 차트 렌더링', table: '📄 데이터 테이블',
+};
+let _stepTimers = {};
+
+function _progressStart(title) {
+  const loading = document.getElementById('loading');
+  document.getElementById('loadingMsg').innerHTML = `<strong>${title}</strong>`;
+  document.getElementById('progressSteps').innerHTML = Object.entries(STEP_LABELS).map(([k, v]) =>
+    `<div class="p-step" id="ps-${k}"><span class="p-icon">○</span><span class="p-label">${v}</span><span class="p-time" id="pt-${k}"></span></div>`
+  ).join('');
+  document.getElementById('progressBar').style.width = '0%';
+  _stepTimers = {};
+  loading.classList.add('active');
+}
+
+function _progressStep(id, detail, pct) {
+  _stepTimers[id] = performance.now();
+  const step = document.getElementById(`ps-${id}`);
+  if (step) { step.className = 'p-step active'; step.querySelector('.p-icon').textContent = '⟳'; }
+  // Update bar
+  const keys = Object.keys(STEP_LABELS);
+  const idx = keys.indexOf(id);
+  const barPct = pct != null ? pct : Math.round(((idx + 0.5) / keys.length) * 100);
+  document.getElementById('progressBar').style.width = barPct + '%';
+  // Update main message
+  document.getElementById('loadingMsg').innerHTML = detail || '';
+}
+
+function _progressDone(id) {
+  const elapsed = _stepTimers[id] ? Math.round(performance.now() - _stepTimers[id]) : 0;
+  const step = document.getElementById(`ps-${id}`);
+  if (step) {
+    step.className = 'p-step done';
+    step.querySelector('.p-icon').textContent = '✓';
+    const timeEl = document.getElementById(`pt-${id}`);
+    if (timeEl) timeEl.textContent = elapsed >= 1000 ? (elapsed / 1000).toFixed(1) + 's' : elapsed + 'ms';
+  }
+  const keys = Object.keys(STEP_LABELS);
+  const idx = keys.indexOf(id);
+  document.getElementById('progressBar').style.width = Math.round(((idx + 1) / keys.length) * 100) + '%';
+}
+
+function _progressEnd() {
+  document.getElementById('progressBar').style.width = '100%';
+  setTimeout(() => document.getElementById('loading').classList.remove('active'), 400);
 }
 
 function renderSummary(data) {
@@ -1952,11 +2384,15 @@ function renderColumns(cols) {
         </div>`;
     }
 
+    const isDisabled = disabledColumns.has(c.name);
     return `
-    <div class="col-card animate-in">
+    <div class="col-card animate-in${isDisabled ? ' disabled' : ''}" data-colname="${c.name}">
       <div class="col-card-header">
         <span class="col-name">${c.name}</span>
-        <span class="col-type ${c.semantic_type}">${c.semantic_type}</span>
+        <div style="display:flex;align-items:center;gap:.4rem">
+          <span class="col-type ${c.semantic_type}">${c.semantic_type}</span>
+          <button class="col-toggle${isDisabled ? ' off' : ''}" onclick="onColumnToggle('${c.name}', this)" title="${isDisabled ? '차트에 포함' : '차트에서 제외'}"></button>
+        </div>
       </div>
       <div class="col-color-row">
         <div class="col-color-swatch" id="swatch-${idx}" style="background:${color}">
@@ -1994,81 +2430,52 @@ function onValueColorChange(input) {
   const vKey = input.dataset.vkey;
   const newColor = input.value;
   valueColors[vKey] = newColor;
-
-  // Update dot visual
   input.parentElement.style.background = newColor;
-
   reRenderCharts();
 }
 
-function renderRecommendations(data) {
-  const el = document.getElementById('recsGrid');
-  el.innerHTML = '';
+function onColumnToggle(colName, btn) {
+  if (disabledColumns.has(colName)) {
+    disabledColumns.delete(colName);
+    btn.classList.remove('off');
+    btn.title = '차트에서 제외';
+  } else {
+    disabledColumns.add(colName);
+    btn.classList.add('off');
+    btn.title = '차트에 포함';
+  }
+  // Update column card visual
+  const card = btn.closest('.col-card');
+  if (card) card.classList.toggle('disabled', disabledColumns.has(colName));
 
-  data.recommendations.forEach((rec, idx) => {
-    const card = document.createElement('div');
-    const wideTypes = ['sankey','parallel','themeriver','treemap','sunburst','heatmap','calendar_heatmap'];
-    card.className = `rec-card animate-in${wideTypes.includes(rec.chart_type) ? ' full-width' : ''}`;
-    card.style.animationDelay = `${idx * 0.06}s`;
-    card.dataset.idx = idx;
+  applyColumnFilter();
+}
 
-    const scoreClass = rec.score >= 85 ? 'high' : rec.score >= 70 ? 'mid' : 'low';
-    const mappingHtml = Object.entries(rec.mapping).map(([axis, fields]) => {
-      const fs = Array.isArray(fields) ? fields : [fields];
-      return fs.map(f => `<span class="mapping-tag"><span class="axis">${axis}</span><span class="field">${f}</span></span>`).join('');
-    }).join('');
+function applyColumnFilter() {
+  if (!currentData) return;
+  document.querySelectorAll('.rec-card').forEach(card => {
+    const idx = parseInt(card.dataset.idx);
+    const rec = currentData.recommendations[idx];
+    if (!rec) return;
 
-    const chartId = `echart-${idx}`;
-    const chartHeight = ['sankey','heatmap','parallel','themeriver','treemap','sunburst','calendar_heatmap'].includes(rec.chart_type) ? '380px' : '300px';
+    // Check if any disabled column is used in this chart's mapping
+    const m = rec.mapping;
+    const usedCols = new Set();
+    if (m.x) { (Array.isArray(m.x) ? m.x : [m.x]).forEach(c => usedCols.add(c)); }
+    if (m.y) { m.y.forEach(c => usedCols.add(c)); }
+    if (m.group) usedCols.add(m.group);
+    // Remove meta-columns
+    usedCols.delete('columns'); usedCols.delete('rows'); usedCols.delete('summary');
 
-    card.innerHTML = `
-      <div class="rec-card-head">
-        <div class="rec-info" onclick="toggleCollapse(${idx})">
-          <span class="rec-icon">${rec.icon}</span>
-          <div><div class="rec-title">${rec.name_ko}</div><div class="rec-subtitle">${rec.name}</div></div>
-        </div>
-        <div class="rec-actions" onclick="event.stopPropagation()">
-          <span class="rec-score ${scoreClass}">${rec.score}</span>
-          <div class="menu-wrap">
-            <button class="menu-btn" onclick="toggleMenu(${idx}, this)" title="메뉴">⋯</button>
-            <div class="menu-dropdown" id="menu-${idx}">
-              <button class="menu-item" onclick="saveChartImage(${idx})"><span class="mi-icon">📷</span>이미지로 저장</button>
-              <button class="menu-item" onclick="copyChartCode(${idx})"><span class="mi-icon">📋</span>코드 복사</button>
-              <button class="menu-item" onclick="exportChartCSV(${idx})"><span class="mi-icon">💾</span>데이터 CSV 저장</button>
-              <div style="border-top:1px solid var(--border);margin:.3rem 0"></div>
-              <button class="menu-item" onclick="exportOverlaysJSON(${idx})"><span class="mi-icon">📤</span>오버레이 저장</button>
-              <button class="menu-item" onclick="importOverlaysJSON(${idx})"><span class="mi-icon">📥</span>오버레이 로드</button>
-            </div>
-          </div>
-          <button class="collapse-btn" onclick="toggleCollapse(${idx})" title="접기/펼치기">▼</button>
-        </div>
-      </div>
-      <div class="rec-body">
-        <div class="rec-reason">${rec.reason}</div>
-        <div class="rec-mapping">${mappingHtml}</div>
-        <div class="chart-container" style="height:${chartHeight}" ondblclick="onContainerDblClick(event,${idx})">
-          <div id="${chartId}" style="width:100%;height:100%"></div>
-          <div class="chart-overlay" id="overlay-${idx}"></div>
-          <div class="chart-toolbar">
-            <button class="tb-btn" onclick="toggleOverlayVisibility(${idx}, this)" title="오버레이 보기/숨기기">👁</button>
-            <button class="tb-btn" onclick="startMemo(${idx})" title="메모 추가">✎</button>
-            <button class="tb-btn" onclick="addHLine(${idx})" title="가로 점선">━</button>
-            <button class="tb-btn" onclick="addVLine(${idx})" title="세로 점선">┃</button>
-            <button class="tb-btn" onclick="addRect(${idx})" title="점선 박스">▢</button>
-            <button class="tb-btn" onclick="clearOverlays(${idx})" title="오버레이 모두 제거">🗑</button>
-          </div>
-        </div>
-      </div>`;
-    el.appendChild(card);
-
-    // Store rec data for menu functions
-    card._rec = rec;
-    card._chartId = chartId;
-
-    requestAnimationFrame(() => {
-      try { buildEChart(chartId, rec, data.preview); } catch(e) { console.warn('EChart render failed:', e); }
-    });
+    const hasDisabled = [...usedCols].some(c => disabledColumns.has(c));
+    card.classList.toggle('col-hidden', hasDisabled);
   });
+
+  // Update count in summary
+  const visibleCount = document.querySelectorAll('.rec-card:not(.col-hidden)').length;
+  const totalCount = currentData.recommendations.length;
+  const countEl = document.getElementById('fileSummary')?.querySelector('.value.accent:last-of-type');
+  // No need to update if element doesn't exist
 }
 
 // ─── Collapse ───
@@ -2322,6 +2729,6 @@ function renderTable(preview) {
 }
 
 
-const DEMO_DATA={"filename": "sample_data.xlsx", "shape": {"rows": 150, "columns": 8}, "column_analysis": [{"name": "날짜", "dtype": "datetime64[us]", "null_count": 0, "null_pct": 0.0, "unique_count": 150, "total_count": 150, "sample_values": ["2023-01-01 00:00:00", "2023-01-02 00:00:00", "2023-01-03 00:00:00", "2023-01-04 00:00:00", "2023-01-05 00:00:00"], "semantic_type": "temporal", "temporal_grain": "daily", "stats": {"min": "2023-01-01 00:00:00", "max": "2023-05-30 00:00:00"}}, {"name": "카테고리", "dtype": "str", "null_count": 0, "null_pct": 0.0, "unique_count": 5, "total_count": 150, "sample_values": ["가구", "스포츠", "식품", "스포츠", "스포츠"], "semantic_type": "low_cardinality", "top_values": {"가구": 40, "스포츠": 30, "의류": 28, "식품": 27, "전자제품": 25}}, {"name": "지역", "dtype": "str", "null_count": 0, "null_pct": 0.0, "unique_count": 4, "total_count": 150, "sample_values": ["서울", "대구", "부산", "서울", "서울"], "semantic_type": "low_cardinality", "top_values": {"인천": 43, "서울": 39, "대구": 38, "부산": 30}}, {"name": "채널", "dtype": "str", "null_count": 0, "null_pct": 0.0, "unique_count": 3, "total_count": 150, "sample_values": ["모바일", "오프라인", "온라인", "모바일", "온라인"], "semantic_type": "low_cardinality", "top_values": {"오프라인": 55, "온라인": 49, "모바일": 46}}, {"name": "매출액", "dtype": "float64", "null_count": 0, "null_pct": 0.0, "unique_count": 132, "total_count": 150, "sample_values": ["484.0", "427.0", "739.0", "435.0", "390.0"], "semantic_type": "numeric", "stats": {"mean": 498.6867, "median": 489.5, "std": 151.6672, "min": 115.0, "max": 988.0}}, {"name": "이익", "dtype": "float64", "null_count": 0, "null_pct": 0.0, "unique_count": 104, "total_count": 150, "sample_values": ["103.0", "101.0", "47.0", "133.0", "84.0"], "semantic_type": "numeric", "stats": {"mean": 102.0467, "median": 93.0, "std": 51.7391, "min": 14.0, "max": 249.0}}, {"name": "수량", "dtype": "int64", "null_count": 0, "null_pct": 0.0, "unique_count": 134, "total_count": 150, "sample_values": ["163", "165", "379", "478", "58"], "semantic_type": "numeric", "stats": {"mean": 267.54, "median": 272.5, "std": 141.131, "min": 11.0, "max": 490.0}}, {"name": "평점", "dtype": "float64", "null_count": 0, "null_pct": 0.0, "unique_count": 21, "total_count": 150, "sample_values": ["3.3", "4.7", "4.0", "4.8", "4.6"], "semantic_type": "numeric", "stats": {"mean": 4.022, "median": 4.1, "std": 0.5952, "min": 3.0, "max": 5.0}}], "recommendations": [{"name": "Line Chart", "name_ko": "라인 차트", "icon": "📈", "description": "시간에 따른 추세 변화", "best_for": "시계열, 트렌드", "chart_type": "line", "score": 95, "mapping": {"x": "날짜", "y": ["매출액"]}, "reason": "시간(날짜)에 따른 매출액 추세"}, {"name": "Bar Chart", "name_ko": "막대 차트", "icon": "📊", "description": "카테고리별 값 비교", "best_for": "카테고리 비교", "chart_type": "bar", "score": 90, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 매출액 비교"}, {"name": "Combo Bar+Line", "name_ko": "바+라인 조합", "icon": "📊📈", "description": "막대와 라인을 하나의 차트에 조합하여 두 지표를 동시 비교", "best_for": "매출 vs 이익률, 수량 vs 평균 등", "chart_type": "combo_bar_line", "score": 84, "mapping": {"x": "날짜", "y": ["매출액", "이익"]}, "reason": "날짜별 매출액(막대)와 이익(라인)을 동시 비교합니다"}, {"name": "Area Chart", "name_ko": "영역 차트", "icon": "🏔️", "description": "시간에 따른 누적 변화 강조", "best_for": "누적 추세", "chart_type": "area", "score": 82, "mapping": {"x": "날짜", "y": ["매출액", "이익", "수량", "평점"]}, "reason": "여러 수치의 누적 변화"}, {"name": "Sankey Diagram", "name_ko": "생키 다이어그램", "icon": "🌊", "description": "카테고리 간 흐름 시각화", "best_for": "흐름, 전환", "chart_type": "sankey", "score": 82, "mapping": {"x": ["카테고리", "지역", "채널"], "y": ["매출액"]}, "reason": "카테고리 → 지역 → 채널 3단계 흐름", "sankey_data": {"nodes": [{"name": "지역:대구"}, {"name": "지역:부산"}, {"name": "지역:서울"}, {"name": "지역:인천"}, {"name": "채널:모바일"}, {"name": "채널:오프라인"}, {"name": "채널:온라인"}, {"name": "카테고리:가구"}, {"name": "카테고리:스포츠"}, {"name": "카테고리:식품"}, {"name": "카테고리:의류"}, {"name": "카테고리:전자제품"}], "links": [{"source": "지역:서울", "target": "채널:오프라인", "value": 10099.0}, {"source": "지역:인천", "target": "채널:온라인", "value": 8707.0}, {"source": "지역:대구", "target": "채널:모바일", "value": 8356.0}, {"source": "카테고리:가구", "target": "지역:인천", "value": 7478.0}, {"source": "지역:인천", "target": "채널:모바일", "value": 6568.0}, {"source": "지역:인천", "target": "채널:오프라인", "value": 6545.0}, {"source": "지역:서울", "target": "채널:온라인", "value": 6104.0}, {"source": "지역:대구", "target": "채널:오프라인", "value": 6061.0}, {"source": "지역:부산", "target": "채널:온라인", "value": 5503.0}, {"source": "지역:부산", "target": "채널:오프라인", "value": 5246.0}, {"source": "카테고리:가구", "target": "지역:서울", "value": 5232.0}, {"source": "카테고리:스포츠", "target": "지역:서울", "value": 5024.0}, {"source": "지역:부산", "target": "채널:모바일", "value": 4815.0}, {"source": "카테고리:의류", "target": "지역:대구", "value": 4655.0}, {"source": "카테고리:가구", "target": "지역:대구", "value": 4312.0}, {"source": "카테고리:식품", "target": "지역:부산", "value": 4236.0}, {"source": "카테고리:스포츠", "target": "지역:인천", "value": 3982.0}, {"source": "카테고리:의류", "target": "지역:부산", "value": 3922.0}, {"source": "카테고리:전자제품", "target": "지역:인천", "value": 3720.0}, {"source": "카테고리:스포츠", "target": "지역:대구", "value": 3618.0}, {"source": "지역:대구", "target": "채널:온라인", "value": 3584.0}, {"source": "카테고리:식품", "target": "지역:인천", "value": 3391.0}, {"source": "카테고리:의류", "target": "지역:인천", "value": 3249.0}, {"source": "지역:서울", "target": "채널:모바일", "value": 3215.0}, {"source": "카테고리:식품", "target": "지역:서울", "value": 3116.0}, {"source": "카테고리:전자제품", "target": "지역:서울", "value": 3060.0}, {"source": "카테고리:의류", "target": "지역:서울", "value": 2986.0}, {"source": "카테고리:식품", "target": "지역:대구", "value": 2967.0}, {"source": "카테고리:가구", "target": "지역:부산", "value": 2824.0}, {"source": "카테고리:전자제품", "target": "지역:부산", "value": 2731.0}, {"source": "카테고리:전자제품", "target": "지역:대구", "value": 2449.0}, {"source": "카테고리:스포츠", "target": "지역:부산", "value": 1851.0}]}}, {"name": "Scatter Plot", "name_ko": "산점도", "icon": "🔵", "description": "두 수치 변수 관계", "best_for": "상관관계", "chart_type": "scatter", "score": 80.78, "mapping": {"x": "매출액", "y": ["평점"]}, "reason": "매출액과 평점 관계 (r=0.08)"}, {"name": "Stacked Bar", "name_ko": "누적 막대 차트", "icon": "📊", "description": "카테고리별 구성요소 합계", "best_for": "구성비 + 합계", "chart_type": "stacked_bar", "score": 78, "mapping": {"x": "카테고리", "y": ["매출액"], "group": "지역"}, "reason": "카테고리별 매출액을 지역으로 세분화"}, {"name": "Grouped Bar", "name_ko": "그룹 막대 차트", "icon": "📊", "description": "카테고리 내 그룹별 직접 비교", "best_for": "그룹 간 직접 비교", "chart_type": "grouped_bar", "score": 77, "mapping": {"x": "카테고리", "y": ["매출액"], "group": "지역"}, "reason": "카테고리별 매출액을 지역으로 그룹 비교"}, {"name": "Pie Chart", "name_ko": "파이 차트", "icon": "🥧", "description": "전체 대비 비율", "best_for": "비율 (≤7 카테고리)", "chart_type": "pie", "score": 75, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리의 구성비"}, {"name": "Theme River", "name_ko": "테마 리버", "icon": "🏞️", "description": "시간 카테고리 흐름", "best_for": "토픽 흐름", "chart_type": "themeriver", "score": 74, "mapping": {"x": "날짜", "y": ["매출액"], "group": "카테고리"}, "reason": "시간별 카테고리 흐름 리버"}, {"name": "Doughnut Chart", "name_ko": "도넛 차트", "icon": "🍩", "description": "중앙 요약이 있는 비율", "best_for": "비율 + 요약", "chart_type": "doughnut", "score": 73, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 비율 도넛"}, {"name": "Funnel Chart", "name_ko": "깔때기 차트", "icon": "🔻", "description": "단계별 감소 흐름", "best_for": "전환율, 퍼널", "chart_type": "funnel", "score": 72, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 깔때기"}, {"name": "Nightingale Rose", "name_ko": "나이팅게일 로즈", "icon": "🌹", "description": "반지름으로 크기 인코딩", "best_for": "크기 강조 비율", "chart_type": "nightingale", "score": 71, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 나이팅게일 로즈"}, {"name": "Calendar Heatmap", "name_ko": "캘린더 히트맵", "icon": "📅", "description": "날짜별 수치를 달력 형태로 표현", "best_for": "일별 패턴, 계절성", "chart_type": "calendar_heatmap", "score": 70, "mapping": {"x": "날짜", "y": ["매출액"]}, "reason": "날짜별 매출액을 캘린더 히트맵으로 패턴 분석합니다"}, {"name": "Bubble Chart", "name_ko": "버블 차트", "icon": "🫧", "description": "3개 수치 변수 관계", "best_for": "3차원 관계", "chart_type": "bubble", "score": 70, "mapping": {"x": "매출액", "y": ["이익"], "group": "수량"}, "reason": "X=매출액, Y=이익, 크기=수량"}, {"name": "Step Line", "name_ko": "계단형 차트", "icon": "📉", "description": "이산적 변화를 계단 형태로 표현", "best_for": "상태 변화, 이산 이벤트", "chart_type": "step_line", "score": 69, "mapping": {"x": "날짜", "y": ["매출액"]}, "reason": "매출액의 이산적 변화를 계단형으로 표현합니다"}, {"name": "Lollipop Chart", "name_ko": "롤리팝 차트", "icon": "🍭", "description": "막대 대신 점+선으로 깔끔하게 비교", "best_for": "순위, 깔끔한 비교", "chart_type": "lollipop", "score": 69, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 매출액을 롤리팝으로 깔끔하게 비교합니다"}, {"name": "Box Plot", "name_ko": "박스 플롯", "icon": "📦", "description": "사분위수와 이상치", "best_for": "분포 비교", "chart_type": "box", "score": 68, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 매출액 분포 비교"}, {"name": "Treemap", "name_ko": "트리맵", "icon": "🟩", "description": "계층적 중첩 사각형", "best_for": "계층 비율", "chart_type": "treemap", "score": 67, "mapping": {"x": ["카테고리", "지역"], "y": ["매출액"]}, "reason": "계층 구조 비교", "tree_data": [{"name": "가구", "children": [{"name": "인천", "value": 7478.0}, {"name": "서울", "value": 5232.0}, {"name": "대구", "value": 4312.0}, {"name": "부산", "value": 2824.0}]}, {"name": "의류", "children": [{"name": "대구", "value": 4655.0}, {"name": "부산", "value": 3922.0}, {"name": "인천", "value": 3249.0}, {"name": "서울", "value": 2986.0}]}, {"name": "스포츠", "children": [{"name": "서울", "value": 5024.0}, {"name": "인천", "value": 3982.0}, {"name": "대구", "value": 3618.0}, {"name": "부산", "value": 1851.0}]}, {"name": "식품", "children": [{"name": "부산", "value": 4236.0}, {"name": "인천", "value": 3391.0}, {"name": "서울", "value": 3116.0}, {"name": "대구", "value": 2967.0}]}, {"name": "전자제품", "children": [{"name": "인천", "value": 3720.0}, {"name": "서울", "value": 3060.0}, {"name": "부산", "value": 2731.0}, {"name": "대구", "value": 2449.0}]}]}, {"name": "Waterfall Chart", "name_ko": "폭포 차트", "icon": "🪜", "description": "값의 증감 순차 표시", "best_for": "증감 분석", "chart_type": "waterfall", "score": 66, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "증감 폭포 차트"}, {"name": "Histogram", "name_ko": "히스토그램", "icon": "📶", "description": "수치 데이터 분포", "best_for": "분포 분석", "chart_type": "histogram", "score": 65, "mapping": {"x": "매출액", "y": ["매출액"]}, "reason": "매출액 분포"}, {"name": "Polar Bar", "name_ko": "극좌표 막대", "icon": "🎯", "description": "원형 좌표 카테고리 비교", "best_for": "주기적 데이터", "chart_type": "polar_bar", "score": 64, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 극좌표 막대"}, {"name": "Candlestick", "name_ko": "캔들스틱 차트", "icon": "🕯️", "description": "시간별 OHLC/범위를 캔들로 표현", "best_for": "가격 변동, 범위 분석", "chart_type": "candlestick", "score": 63, "mapping": {"x": "날짜", "y": ["매출액"]}, "reason": "기간별 매출액의 시가/고가/저가/종가 범위를 캔들로 봅니다"}, {"name": "Sunburst", "name_ko": "선버스트", "icon": "☀️", "description": "계층적 동심원", "best_for": "드릴다운", "chart_type": "sunburst", "score": 63, "mapping": {"x": ["카테고리", "지역"], "y": ["매출액"]}, "reason": "선버스트 드릴다운", "tree_data": [{"name": "가구", "children": [{"name": "인천", "value": 7478.0}, {"name": "서울", "value": 5232.0}, {"name": "대구", "value": 4312.0}, {"name": "부산", "value": 2824.0}]}, {"name": "의류", "children": [{"name": "대구", "value": 4655.0}, {"name": "부산", "value": 3922.0}, {"name": "인천", "value": 3249.0}, {"name": "서울", "value": 2986.0}]}, {"name": "스포츠", "children": [{"name": "서울", "value": 5024.0}, {"name": "인천", "value": 3982.0}, {"name": "대구", "value": 3618.0}, {"name": "부산", "value": 1851.0}]}, {"name": "식품", "children": [{"name": "부산", "value": 4236.0}, {"name": "인천", "value": 3391.0}, {"name": "서울", "value": 3116.0}, {"name": "대구", "value": 2967.0}]}, {"name": "전자제품", "children": [{"name": "인천", "value": 3720.0}, {"name": "서울", "value": 3060.0}, {"name": "부산", "value": 2731.0}, {"name": "대구", "value": 2449.0}]}]}, {"name": "Violin Plot", "name_ko": "바이올린 플롯", "icon": "🎻", "description": "분포 형태를 대칭 곡선으로 표현", "best_for": "분포 형태 비교", "chart_type": "violin", "score": 61, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 매출액 분포 형태를 바이올린으로 비교"}, {"name": "Radar Chart", "name_ko": "레이더 차트", "icon": "🕸️", "description": "여러 지표 동시 비교", "best_for": "다중 지표 비교", "chart_type": "radar", "score": 60, "mapping": {"x": "카테고리", "y": ["매출액", "이익", "수량", "평점"]}, "reason": "여러 지표(매출액, 이익, 수량...) 동시 비교"}, {"name": "Heatmap", "name_ko": "히트맵", "icon": "🟥", "description": "수치 강도를 색상 표현", "best_for": "상관 행렬", "chart_type": "heatmap", "score": 58, "mapping": {"x": "columns", "y": ["columns"]}, "reason": "상관관계 행렬 시각화"}, {"name": "Parallel Coordinates", "name_ko": "평행 좌표", "icon": "☰", "description": "다차원 수치 패턴 탐색", "best_for": "다변량 패턴", "chart_type": "parallel", "score": 57, "mapping": {"x": "rows", "y": ["매출액", "이익", "수량", "평점"], "group": "카테고리"}, "reason": "4개 수치를 평행 좌표로 패턴 탐색"}, {"name": "Gauge", "name_ko": "게이지", "icon": "🎛️", "description": "단일 KPI 계기판", "best_for": "KPI 모니터링", "chart_type": "gauge", "score": 45, "mapping": {"x": "매출액", "y": ["매출액"]}, "reason": "매출액 평균 게이지"}, {"name": "Line Chart", "name_ko": "라인 차트", "icon": "📈", "description": "시간에 따른 추세 변화", "best_for": "시계열, 트렌드", "chart_type": "line", "score": 95, "mapping": {"x": "날짜", "y": ["이익"]}, "reason": "시간(날짜)에 따른 이익 추세"}], "preview": {"columns": ["날짜", "카테고리", "지역", "채널", "매출액", "이익", "수량", "평점"], "row_count": 150, "preview_rows": 60, "data": [{"날짜": "2023-01-01", "카테고리": "가구", "지역": "서울", "채널": "모바일", "매출액": 484.0, "이익": 103.0, "수량": 163, "평점": 3.3}, {"날짜": "2023-01-02", "카테고리": "스포츠", "지역": "대구", "채널": "오프라인", "매출액": 427.0, "이익": 101.0, "수량": 165, "평점": 4.7}, {"날짜": "2023-01-03", "카테고리": "식품", "지역": "부산", "채널": "온라인", "매출액": 739.0, "이익": 47.0, "수량": 379, "평점": 4.0}, {"날짜": "2023-01-04", "카테고리": "스포츠", "지역": "서울", "채널": "모바일", "매출액": 435.0, "이익": 133.0, "수량": 478, "평점": 4.8}, {"날짜": "2023-01-05", "카테고리": "스포츠", "지역": "서울", "채널": "온라인", "매출액": 390.0, "이익": 84.0, "수량": 58, "평점": 4.6}, {"날짜": "2023-01-06", "카테고리": "의류", "지역": "서울", "채널": "오프라인", "매출액": 413.0, "이익": 68.0, "수량": 464, "평점": 3.9}, {"날짜": "2023-01-07", "카테고리": "식품", "지역": "대구", "채널": "오프라인", "매출액": 480.0, "이익": 76.0, "수량": 346, "평점": 3.0}, {"날짜": "2023-01-08", "카테고리": "식품", "지역": "부산", "채널": "모바일", "매출액": 381.0, "이익": 46.0, "수량": 93, "평점": 3.5}, {"날짜": "2023-01-09", "카테고리": "식품", "지역": "서울", "채널": "오프라인", "매출액": 445.0, "이익": 97.0, "수량": 370, "평점": 4.1}, {"날짜": "2023-01-10", "카테고리": "스포츠", "지역": "인천", "채널": "온라인", "매출액": 524.0, "이익": 197.0, "수량": 186, "평점": 4.3}, {"날짜": "2023-01-11", "카테고리": "가구", "지역": "서울", "채널": "모바일", "매출액": 483.0, "이익": 90.0, "수량": 157, "평점": 3.5}, {"날짜": "2023-01-12", "카테고리": "식품", "지역": "서울", "채널": "온라인", "매출액": 625.0, "이익": 119.0, "수량": 127, "평점": 3.3}, {"날짜": "2023-01-13", "카테고리": "스포츠", "지역": "대구", "채널": "온라인", "매출액": 452.0, "이익": 51.0, "수량": 351, "평점": 4.7}, {"날짜": "2023-01-14", "카테고리": "의류", "지역": "대구", "채널": "오프라인", "매출액": 469.0, "이익": 98.0, "수량": 485, "평점": 5.0}, {"날짜": "2023-01-15", "카테고리": "가구", "지역": "부산", "채널": "오프라인", "매출액": 541.0, "이익": 152.0, "수량": 72, "평점": 4.1}, {"날짜": "2023-01-16", "카테고리": "의류", "지역": "인천", "채널": "오프라인", "매출액": 837.0, "이익": 93.0, "수량": 198, "평점": 3.3}, {"날짜": "2023-01-17", "카테고리": "가구", "지역": "대구", "채널": "오프라인", "매출액": 382.0, "이익": 61.0, "수량": 369, "평점": 3.5}, {"날짜": "2023-01-18", "카테고리": "스포츠", "지역": "서울", "채널": "오프라인", "매출액": 789.0, "이익": 127.0, "수량": 58, "평점": 3.0}, {"날짜": "2023-01-19", "카테고리": "전자제품", "지역": "부산", "채널": "모바일", "매출액": 322.0, "이익": 54.0, "수량": 336, "평점": 4.8}, {"날짜": "2023-01-20", "카테고리": "가구", "지역": "서울", "채널": "온라인", "매출액": 534.0, "이익": 37.0, "수량": 266, "평점": 3.2}, {"날짜": "2023-01-21", "카테고리": "의류", "지역": "서울", "채널": "온라인", "매출액": 449.0, "이익": 34.0, "수량": 233, "평점": 4.2}, {"날짜": "2023-01-22", "카테고리": "스포츠", "지역": "대구", "채널": "온라인", "매출액": 378.0, "이익": 38.0, "수량": 150, "평점": 3.5}, {"날짜": "2023-01-23", "카테고리": "가구", "지역": "부산", "채널": "온라인", "매출액": 605.0, "이익": 76.0, "수량": 487, "평점": 4.1}, {"날짜": "2023-01-24", "카테고리": "전자제품", "지역": "인천", "채널": "오프라인", "매출액": 590.0, "이익": 120.0, "수량": 224, "평점": 4.3}, {"날짜": "2023-01-25", "카테고리": "전자제품", "지역": "인천", "채널": "온라인", "매출액": 428.0, "이익": 159.0, "수량": 444, "평점": 4.7}, {"날짜": "2023-01-26", "카테고리": "식품", "지역": "대구", "채널": "모바일", "매출액": 186.0, "이익": 65.0, "수량": 388, "평점": 3.4}, {"날짜": "2023-01-27", "카테고리": "식품", "지역": "대구", "채널": "모바일", "매출액": 437.0, "이익": 167.0, "수량": 449, "평점": 3.0}, {"날짜": "2023-01-28", "카테고리": "의류", "지역": "부산", "채널": "온라인", "매출액": 521.0, "이익": 145.0, "수량": 220, "평점": 3.3}, {"날짜": "2023-01-29", "카테고리": "가구", "지역": "인천", "채널": "온라인", "매출액": 500.0, "이익": 128.0, "수량": 327, "평점": 4.8}, {"날짜": "2023-01-30", "카테고리": "가구", "지역": "인천", "채널": "모바일", "매출액": 613.0, "이익": 195.0, "수량": 41, "평점": 4.7}, {"날짜": "2023-01-31", "카테고리": "식품", "지역": "인천", "채널": "모바일", "매출액": 790.0, "이익": 140.0, "수량": 167, "평점": 4.2}, {"날짜": "2023-02-01", "카테고리": "가구", "지역": "서울", "채널": "오프라인", "매출액": 562.0, "이익": 78.0, "수량": 294, "평점": 4.2}, {"날짜": "2023-02-02", "카테고리": "가구", "지역": "인천", "채널": "모바일", "매출액": 585.0, "이익": 64.0, "수량": 314, "평점": 4.3}, {"날짜": "2023-02-03", "카테고리": "전자제품", "지역": "서울", "채널": "오프라인", "매출액": 522.0, "이익": 132.0, "수량": 438, "평점": 3.4}, {"날짜": "2023-02-04", "카테고리": "식품", "지역": "부산", "채널": "오프라인", "매출액": 676.0, "이익": 99.0, "수량": 486, "평점": 4.8}, {"날짜": "2023-02-05", "카테고리": "스포츠", "지역": "서울", "채널": "오프라인", "매출액": 580.0, "이익": 23.0, "수량": 295, "평점": 3.8}, {"날짜": "2023-02-06", "카테고리": "식품", "지역": "부산", "채널": "오프라인", "매출액": 612.0, "이익": 156.0, "수량": 153, "평점": 3.8}, {"날짜": "2023-02-07", "카테고리": "스포츠", "지역": "인천", "채널": "오프라인", "매출액": 771.0, "이익": 138.0, "수량": 433, "평점": 4.0}, {"날짜": "2023-02-08", "카테고리": "전자제품", "지역": "인천", "채널": "온라인", "매출액": 534.0, "이익": 14.0, "수량": 28, "평점": 3.1}, {"날짜": "2023-02-09", "카테고리": "의류", "지역": "부산", "채널": "모바일", "매출액": 459.0, "이익": 133.0, "수량": 27, "평점": 3.3}, {"날짜": "2023-02-10", "카테고리": "가구", "지역": "대구", "채널": "오프라인", "매출액": 567.0, "이익": 126.0, "수량": 266, "평점": 4.5}, {"날짜": "2023-02-11", "카테고리": "전자제품", "지역": "부산", "채널": "모바일", "매출액": 670.0, "이익": 67.0, "수량": 87, "평점": 3.2}, {"날짜": "2023-02-12", "카테고리": "가구", "지역": "대구", "채널": "모바일", "매출액": 575.0, "이익": 50.0, "수량": 380, "평점": 4.2}, {"날짜": "2023-02-13", "카테고리": "의류", "지역": "서울", "채널": "오프라인", "매출액": 659.0, "이익": 212.0, "수량": 184, "평점": 3.5}, {"날짜": "2023-02-14", "카테고리": "의류", "지역": "서울", "채널": "온라인", "매출액": 400.0, "이익": 229.0, "수량": 203, "평점": 3.8}, {"날짜": "2023-02-15", "카테고리": "전자제품", "지역": "서울", "채널": "오프라인", "매출액": 370.0, "이익": 64.0, "수량": 485, "평점": 3.6}, {"날짜": "2023-02-16", "카테고리": "의류", "지역": "인천", "채널": "온라인", "매출액": 418.0, "이익": 152.0, "수량": 122, "평점": 3.7}, {"날짜": "2023-02-17", "카테고리": "스포츠", "지역": "서울", "채널": "모바일", "매출액": 310.0, "이익": 148.0, "수량": 123, "평점": 4.4}, {"날짜": "2023-02-18", "카테고리": "의류", "지역": "대구", "채널": "온라인", "매출액": 517.0, "이익": 99.0, "수량": 231, "평점": 3.6}, {"날짜": "2023-02-19", "카테고리": "가구", "지역": "서울", "채널": "온라인", "매출액": 435.0, "이익": 164.0, "수량": 175, "평점": 4.1}, {"날짜": "2023-02-20", "카테고리": "가구", "지역": "부산", "채널": "온라인", "매출액": 685.0, "이익": 163.0, "수량": 444, "평점": 4.0}, {"날짜": "2023-02-21", "카테고리": "가구", "지역": "부산", "채널": "모바일", "매출액": 306.0, "이익": 127.0, "수량": 328, "평점": 4.3}, {"날짜": "2023-02-22", "카테고리": "가구", "지역": "인천", "채널": "모바일", "매출액": 733.0, "이익": 132.0, "수량": 141, "평점": 4.9}, {"날짜": "2023-02-23", "카테고리": "스포츠", "지역": "부산", "채널": "온라인", "매출액": 353.0, "이익": 147.0, "수량": 394, "평점": 4.5}, {"날짜": "2023-02-24", "카테고리": "식품", "지역": "대구", "채널": "온라인", "매출액": 314.0, "이익": 120.0, "수량": 273, "평점": 3.4}, {"날짜": "2023-02-25", "카테고리": "전자제품", "지역": "서울", "채널": "오프라인", "매출액": 376.0, "이익": 68.0, "수량": 422, "평점": 3.1}, {"날짜": "2023-02-26", "카테고리": "가구", "지역": "인천", "채널": "온라인", "매출액": 793.0, "이익": 33.0, "수량": 64, "평점": 3.5}, {"날짜": "2023-02-27", "카테고리": "의류", "지역": "서울", "채널": "오프라인", "매출액": 494.0, "이익": 166.0, "수량": 368, "평점": 4.2}, {"날짜": "2023-02-28", "카테고리": "가구", "지역": "서울", "채널": "온라인", "매출액": 579.0, "이익": 32.0, "수량": 140, "평점": 3.1}, {"날짜": "2023-03-01", "카테고리": "의류", "지역": "대구", "채널": "오프라인", "매출액": 472.0, "이익": 69.0, "수량": 297, "평점": 4.0}]}, "processing_time_ms": 42};
-document.addEventListener("DOMContentLoaded",()=>{const z=document.getElementById("dropZone");const b=document.createElement("button");b.textContent="🎯 샘플 데이터로 데모 보기";b.style.cssText="margin-top:1.2rem;padding:.7rem 1.5rem;border-radius:10px;border:none;background:linear-gradient(135deg,#4f7df9,#a78bfa);color:#fff;font-weight:600;font-size:.9rem;cursor:pointer;font-family:inherit;position:relative;z-index:2;";b.onclick=(e)=>{e.stopPropagation();renderResults(DEMO_DATA)};z.appendChild(b)});
+const DEMO_DATA={"filename": "sample.xlsx", "shape": {"rows": 150, "columns": 8}, "column_analysis": [{"name": "날짜", "dtype": "datetime64[us]", "null_count": 0, "null_pct": 0.0, "unique_count": 150, "total_count": 150, "sample_values": ["2023-01-01 00:00:00", "2023-01-02 00:00:00", "2023-01-03 00:00:00", "2023-01-04 00:00:00", "2023-01-05 00:00:00"], "semantic_type": "temporal", "temporal_grain": "daily", "stats": {"min": "2023-01-01 00:00:00", "max": "2023-05-30 00:00:00"}}, {"name": "카테고리", "dtype": "str", "null_count": 0, "null_pct": 0.0, "unique_count": 5, "total_count": 150, "sample_values": ["가구", "스포츠", "식품", "스포츠", "스포츠"], "semantic_type": "low_cardinality", "top_values": {"가구": 40, "스포츠": 30, "의류": 28, "식품": 27, "전자제품": 25}}, {"name": "지역", "dtype": "str", "null_count": 0, "null_pct": 0.0, "unique_count": 4, "total_count": 150, "sample_values": ["서울", "대구", "부산", "서울", "서울"], "semantic_type": "low_cardinality", "top_values": {"인천": 43, "서울": 39, "대구": 38, "부산": 30}}, {"name": "채널", "dtype": "str", "null_count": 0, "null_pct": 0.0, "unique_count": 3, "total_count": 150, "sample_values": ["모바일", "오프라인", "온라인", "모바일", "온라인"], "semantic_type": "low_cardinality", "top_values": {"오프라인": 55, "온라인": 49, "모바일": 46}}, {"name": "매출액", "dtype": "float64", "null_count": 0, "null_pct": 0.0, "unique_count": 132, "total_count": 150, "sample_values": ["484.0", "427.0", "739.0", "435.0", "390.0"], "semantic_type": "numeric", "stats": {"mean": 498.6867, "median": 489.5, "std": 151.6672, "min": 115.0, "max": 988.0}}, {"name": "이익", "dtype": "float64", "null_count": 0, "null_pct": 0.0, "unique_count": 104, "total_count": 150, "sample_values": ["103.0", "101.0", "47.0", "133.0", "84.0"], "semantic_type": "numeric", "stats": {"mean": 102.0467, "median": 93.0, "std": 51.7391, "min": 14.0, "max": 249.0}}, {"name": "수량", "dtype": "int64", "null_count": 0, "null_pct": 0.0, "unique_count": 134, "total_count": 150, "sample_values": ["163", "165", "379", "478", "58"], "semantic_type": "numeric", "stats": {"mean": 267.54, "median": 272.5, "std": 141.131, "min": 11.0, "max": 490.0}}, {"name": "평점", "dtype": "float64", "null_count": 0, "null_pct": 0.0, "unique_count": 21, "total_count": 150, "sample_values": ["3.3", "4.7", "4.0", "4.8", "4.6"], "semantic_type": "numeric", "stats": {"mean": 4.022, "median": 4.1, "std": 0.5952, "min": 3.0, "max": 5.0}}], "recommendations": [{"name": "Line Chart", "name_ko": "라인 차트", "icon": "📈", "description": "시간에 따른 추세 변화", "best_for": "시계열, 트렌드", "chart_type": "line", "score": 95, "mapping": {"x": "날짜", "y": ["매출액"]}, "reason": "시간(날짜)에 따른 매출액 추세"}, {"name": "Bar Chart", "name_ko": "막대 차트", "icon": "📊", "description": "카테고리별 값 비교", "best_for": "카테고리 비교", "chart_type": "bar", "score": 90, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 매출액 비교"}, {"name": "Combo Bar+Line", "name_ko": "바+라인 조합", "icon": "📊📈", "description": "막대와 라인을 하나의 차트에 조합하여 두 지표를 동시 비교", "best_for": "매출 vs 이익률, 수량 vs 평균 등", "chart_type": "combo_bar_line", "score": 84, "mapping": {"x": "날짜", "y": ["매출액", "이익"]}, "reason": "날짜별 매출액(막대)와 이익(라인)을 동시 비교합니다"}, {"name": "Area Chart", "name_ko": "영역 차트", "icon": "🏔️", "description": "시간에 따른 누적 변화 강조", "best_for": "누적 추세", "chart_type": "area", "score": 82, "mapping": {"x": "날짜", "y": ["매출액", "이익", "수량", "평점"]}, "reason": "여러 수치의 누적 변화"}, {"name": "Sankey Diagram", "name_ko": "생키 다이어그램", "icon": "🌊", "description": "카테고리 간 흐름 시각화", "best_for": "흐름, 전환", "chart_type": "sankey", "score": 82, "mapping": {"x": ["카테고리", "지역", "채널"], "y": ["매출액"]}, "reason": "카테고리 → 지역 → 채널 3단계 흐름", "sankey_data": {"nodes": [{"name": "지역:대구"}, {"name": "지역:부산"}, {"name": "지역:서울"}, {"name": "지역:인천"}, {"name": "채널:모바일"}, {"name": "채널:오프라인"}, {"name": "채널:온라인"}, {"name": "카테고리:가구"}, {"name": "카테고리:스포츠"}, {"name": "카테고리:식품"}, {"name": "카테고리:의류"}, {"name": "카테고리:전자제품"}], "links": [{"source": "지역:서울", "target": "채널:오프라인", "value": 10099.0}, {"source": "지역:인천", "target": "채널:온라인", "value": 8707.0}, {"source": "지역:대구", "target": "채널:모바일", "value": 8356.0}, {"source": "카테고리:가구", "target": "지역:인천", "value": 7478.0}, {"source": "지역:인천", "target": "채널:모바일", "value": 6568.0}, {"source": "지역:인천", "target": "채널:오프라인", "value": 6545.0}, {"source": "지역:서울", "target": "채널:온라인", "value": 6104.0}, {"source": "지역:대구", "target": "채널:오프라인", "value": 6061.0}, {"source": "지역:부산", "target": "채널:온라인", "value": 5503.0}, {"source": "지역:부산", "target": "채널:오프라인", "value": 5246.0}, {"source": "카테고리:가구", "target": "지역:서울", "value": 5232.0}, {"source": "카테고리:스포츠", "target": "지역:서울", "value": 5024.0}, {"source": "지역:부산", "target": "채널:모바일", "value": 4815.0}, {"source": "카테고리:의류", "target": "지역:대구", "value": 4655.0}, {"source": "카테고리:가구", "target": "지역:대구", "value": 4312.0}, {"source": "카테고리:식품", "target": "지역:부산", "value": 4236.0}, {"source": "카테고리:스포츠", "target": "지역:인천", "value": 3982.0}, {"source": "카테고리:의류", "target": "지역:부산", "value": 3922.0}, {"source": "카테고리:전자제품", "target": "지역:인천", "value": 3720.0}, {"source": "카테고리:스포츠", "target": "지역:대구", "value": 3618.0}, {"source": "지역:대구", "target": "채널:온라인", "value": 3584.0}, {"source": "카테고리:식품", "target": "지역:인천", "value": 3391.0}, {"source": "카테고리:의류", "target": "지역:인천", "value": 3249.0}, {"source": "지역:서울", "target": "채널:모바일", "value": 3215.0}, {"source": "카테고리:식품", "target": "지역:서울", "value": 3116.0}, {"source": "카테고리:전자제품", "target": "지역:서울", "value": 3060.0}, {"source": "카테고리:의류", "target": "지역:서울", "value": 2986.0}, {"source": "카테고리:식품", "target": "지역:대구", "value": 2967.0}, {"source": "카테고리:가구", "target": "지역:부산", "value": 2824.0}, {"source": "카테고리:전자제품", "target": "지역:부산", "value": 2731.0}, {"source": "카테고리:전자제품", "target": "지역:대구", "value": 2449.0}, {"source": "카테고리:스포츠", "target": "지역:부산", "value": 1851.0}]}}, {"name": "Scatter Plot", "name_ko": "산점도", "icon": "🔵", "description": "두 수치 변수 관계", "best_for": "상관관계", "chart_type": "scatter", "score": 80.78, "mapping": {"x": "매출액", "y": ["평점"]}, "reason": "매출액과 평점 관계 (r=0.08)"}, {"name": "100% Stacked Bar", "name_ko": "100% 누적 막대", "icon": "📊", "description": "각 카테고리를 100%로 정규화하여 비율 추세를 비교", "best_for": "비율 트렌드, 구성비 변화", "chart_type": "percent_bar", "score": 79, "mapping": {"x": "날짜", "y": ["매출액"], "group": "카테고리"}, "reason": "시간별 카테고리 구성비 변화를 100% 누적으로 추적합니다"}, {"name": "Stacked Bar", "name_ko": "누적 막대 차트", "icon": "📊", "description": "카테고리별 구성요소 합계", "best_for": "구성비 + 합계", "chart_type": "stacked_bar", "score": 78, "mapping": {"x": "카테고리", "y": ["매출액"], "group": "지역"}, "reason": "카테고리별 매출액을 지역으로 세분화"}, {"name": "Grouped Bar", "name_ko": "그룹 막대 차트", "icon": "📊", "description": "카테고리 내 그룹별 직접 비교", "best_for": "그룹 간 직접 비교", "chart_type": "grouped_bar", "score": 77, "mapping": {"x": "카테고리", "y": ["매출액"], "group": "지역"}, "reason": "카테고리별 매출액을 지역으로 그룹 비교"}, {"name": "Pie Chart", "name_ko": "파이 차트", "icon": "🥧", "description": "전체 대비 비율", "best_for": "비율 (≤7 카테고리)", "chart_type": "pie", "score": 75, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리의 구성비"}, {"name": "Theme River", "name_ko": "테마 리버", "icon": "🏞️", "description": "시간 카테고리 흐름", "best_for": "토픽 흐름", "chart_type": "themeriver", "score": 74, "mapping": {"x": "날짜", "y": ["매출액"], "group": "카테고리"}, "reason": "시간별 카테고리 흐름 리버"}, {"name": "Doughnut Chart", "name_ko": "도넛 차트", "icon": "🍩", "description": "중앙 요약이 있는 비율", "best_for": "비율 + 요약", "chart_type": "doughnut", "score": 73, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 비율 도넛"}, {"name": "Funnel Chart", "name_ko": "깔때기 차트", "icon": "🔻", "description": "단계별 감소 흐름", "best_for": "전환율, 퍼널", "chart_type": "funnel", "score": 72, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 깔때기"}, {"name": "Nightingale Rose", "name_ko": "나이팅게일 로즈", "icon": "🌹", "description": "반지름으로 크기 인코딩", "best_for": "크기 강조 비율", "chart_type": "nightingale", "score": 71, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 나이팅게일 로즈"}, {"name": "Calendar Heatmap", "name_ko": "캘린더 히트맵", "icon": "📅", "description": "날짜별 수치를 달력 형태로 표현", "best_for": "일별 패턴, 계절성", "chart_type": "calendar_heatmap", "score": 70, "mapping": {"x": "날짜", "y": ["매출액"]}, "reason": "날짜별 매출액을 캘린더 히트맵으로 패턴 분석합니다"}, {"name": "Bubble Chart", "name_ko": "버블 차트", "icon": "🫧", "description": "3개 수치 변수 관계", "best_for": "3차원 관계", "chart_type": "bubble", "score": 70, "mapping": {"x": "매출액", "y": ["이익"], "group": "수량"}, "reason": "X=매출액, Y=이익, 크기=수량"}, {"name": "Step Line", "name_ko": "계단형 차트", "icon": "📉", "description": "이산적 변화를 계단 형태로 표현", "best_for": "상태 변화, 이산 이벤트", "chart_type": "step_line", "score": 69, "mapping": {"x": "날짜", "y": ["매출액"]}, "reason": "매출액의 이산적 변화를 계단형으로 표현합니다"}, {"name": "Lollipop Chart", "name_ko": "롤리팝 차트", "icon": "🍭", "description": "막대 대신 점+선으로 깔끔하게 비교", "best_for": "순위, 깔끔한 비교", "chart_type": "lollipop", "score": 69, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 매출액을 롤리팝으로 깔끔하게 비교합니다"}, {"name": "Cross Heatmap", "name_ko": "크로스 히트맵", "icon": "🟧", "description": "두 카테고리 축의 교차 수치를 색상으로 표현", "best_for": "교차 분석, 매트릭스 비교", "chart_type": "cross_heatmap", "score": 69, "mapping": {"x": "카테고리", "y": ["매출액"], "group": "지역"}, "reason": "카테고리 × 지역 교차 테이블을 히트맵으로 봅니다"}, {"name": "Box Plot", "name_ko": "박스 플롯", "icon": "📦", "description": "사분위수와 이상치", "best_for": "분포 비교", "chart_type": "box", "score": 68, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 매출액 분포 비교"}, {"name": "Treemap", "name_ko": "트리맵", "icon": "🟩", "description": "계층적 중첩 사각형", "best_for": "계층 비율", "chart_type": "treemap", "score": 67, "mapping": {"x": ["카테고리", "지역"], "y": ["매출액"]}, "reason": "계층 구조 비교", "tree_data": [{"name": "가구", "children": [{"name": "인천", "value": 7478.0}, {"name": "서울", "value": 5232.0}, {"name": "대구", "value": 4312.0}, {"name": "부산", "value": 2824.0}]}, {"name": "의류", "children": [{"name": "대구", "value": 4655.0}, {"name": "부산", "value": 3922.0}, {"name": "인천", "value": 3249.0}, {"name": "서울", "value": 2986.0}]}, {"name": "스포츠", "children": [{"name": "서울", "value": 5024.0}, {"name": "인천", "value": 3982.0}, {"name": "대구", "value": 3618.0}, {"name": "부산", "value": 1851.0}]}, {"name": "식품", "children": [{"name": "부산", "value": 4236.0}, {"name": "인천", "value": 3391.0}, {"name": "서울", "value": 3116.0}, {"name": "대구", "value": 2967.0}]}, {"name": "전자제품", "children": [{"name": "인천", "value": 3720.0}, {"name": "서울", "value": 3060.0}, {"name": "부산", "value": 2731.0}, {"name": "대구", "value": 2449.0}]}]}, {"name": "Waterfall Chart", "name_ko": "폭포 차트", "icon": "🪜", "description": "값의 증감 순차 표시", "best_for": "증감 분석", "chart_type": "waterfall", "score": 66, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "증감 폭포 차트"}, {"name": "Histogram", "name_ko": "히스토그램", "icon": "📶", "description": "수치 데이터 분포", "best_for": "분포 분석", "chart_type": "histogram", "score": 65, "mapping": {"x": "매출액", "y": ["매출액"]}, "reason": "매출액 분포"}, {"name": "Polar Bar", "name_ko": "극좌표 막대", "icon": "🎯", "description": "원형 좌표 카테고리 비교", "best_for": "주기적 데이터", "chart_type": "polar_bar", "score": 64, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 극좌표 막대"}, {"name": "Candlestick", "name_ko": "캔들스틱 차트", "icon": "🕯️", "description": "시간별 OHLC/범위를 캔들로 표현", "best_for": "가격 변동, 범위 분석", "chart_type": "candlestick", "score": 63, "mapping": {"x": "날짜", "y": ["매출액"]}, "reason": "기간별 매출액의 시가/고가/저가/종가 범위를 캔들로 봅니다"}, {"name": "Sunburst", "name_ko": "선버스트", "icon": "☀️", "description": "계층적 동심원", "best_for": "드릴다운", "chart_type": "sunburst", "score": 63, "mapping": {"x": ["카테고리", "지역"], "y": ["매출액"]}, "reason": "선버스트 드릴다운", "tree_data": [{"name": "가구", "children": [{"name": "인천", "value": 7478.0}, {"name": "서울", "value": 5232.0}, {"name": "대구", "value": 4312.0}, {"name": "부산", "value": 2824.0}]}, {"name": "의류", "children": [{"name": "대구", "value": 4655.0}, {"name": "부산", "value": 3922.0}, {"name": "인천", "value": 3249.0}, {"name": "서울", "value": 2986.0}]}, {"name": "스포츠", "children": [{"name": "서울", "value": 5024.0}, {"name": "인천", "value": 3982.0}, {"name": "대구", "value": 3618.0}, {"name": "부산", "value": 1851.0}]}, {"name": "식품", "children": [{"name": "부산", "value": 4236.0}, {"name": "인천", "value": 3391.0}, {"name": "서울", "value": 3116.0}, {"name": "대구", "value": 2967.0}]}, {"name": "전자제품", "children": [{"name": "인천", "value": 3720.0}, {"name": "서울", "value": 3060.0}, {"name": "부산", "value": 2731.0}, {"name": "대구", "value": 2449.0}]}]}, {"name": "Slope Chart", "name_ko": "기울기 차트", "icon": "📐", "description": "두 시점 간의 순위나 값 변화를 기울기선으로 비교", "best_for": "전후 비교, 순위 변동", "chart_type": "slope", "score": 62, "mapping": {"x": "카테고리", "y": ["매출액", "이익"]}, "reason": "카테고리별 매출액 vs 이익 변화를 기울기로 비교"}, {"name": "Violin Plot", "name_ko": "바이올린 플롯", "icon": "🎻", "description": "분포 형태를 대칭 곡선으로 표현", "best_for": "분포 형태 비교", "chart_type": "violin", "score": 61, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 매출액 분포 형태를 바이올린으로 비교"}, {"name": "Radar Chart", "name_ko": "레이더 차트", "icon": "🕸️", "description": "여러 지표 동시 비교", "best_for": "다중 지표 비교", "chart_type": "radar", "score": 60, "mapping": {"x": "카테고리", "y": ["매출액", "이익", "수량", "평점"]}, "reason": "여러 지표(매출액, 이익, 수량...) 동시 비교"}, {"name": "Heatmap", "name_ko": "히트맵", "icon": "🟥", "description": "수치 강도를 색상 표현", "best_for": "상관 행렬", "chart_type": "heatmap", "score": 58, "mapping": {"x": "columns", "y": ["columns"]}, "reason": "상관관계 행렬 시각화"}, {"name": "Parallel Coordinates", "name_ko": "평행 좌표", "icon": "☰", "description": "다차원 수치 패턴 탐색", "best_for": "다변량 패턴", "chart_type": "parallel", "score": 57, "mapping": {"x": "rows", "y": ["매출액", "이익", "수량", "평점"], "group": "카테고리"}, "reason": "4개 수치를 평행 좌표로 패턴 탐색"}, {"name": "Word Cloud", "name_ko": "워드 클라우드", "icon": "☁️", "description": "카테고리 값의 빈도를 글자 크기로 표현", "best_for": "키워드 빈도, 텍스트 분석", "chart_type": "wordcloud", "score": 55, "mapping": {"x": "카테고리", "y": ["카테고리"]}, "reason": "카테고리의 빈도를 워드 클라우드로 시각화합니다"}, {"name": "KPI Dashboard", "name_ko": "KPI 대시보드", "icon": "🏷️", "description": "핵심 수치 지표를 카드 형태로 요약", "best_for": "요약 대시보드, 핵심 지표", "chart_type": "kpi_cards", "score": 50, "mapping": {"x": "summary", "y": ["매출액", "이익", "수량", "평점"]}, "reason": "핵심 수치 4개를 KPI 카드로 요약합니다"}, {"name": "Gauge", "name_ko": "게이지", "icon": "🎛️", "description": "단일 KPI 계기판", "best_for": "KPI 모니터링", "chart_type": "gauge", "score": 45, "mapping": {"x": "매출액", "y": ["매출액"]}, "reason": "매출액 평균 게이지"}, {"name": "Line Chart", "name_ko": "라인 차트", "icon": "📈", "description": "시간에 따른 추세 변화", "best_for": "시계열, 트렌드", "chart_type": "line", "score": 95, "mapping": {"x": "날짜", "y": ["이익"]}, "reason": "시간(날짜)에 따른 이익 추세"}], "preview": {"columns": ["날짜", "카테고리", "지역", "채널", "매출액", "이익", "수량", "평점"], "row_count": 150, "preview_rows": 60, "data": [{"날짜": "2023-01-01", "카테고리": "가구", "지역": "서울", "채널": "모바일", "매출액": 484.0, "이익": 103.0, "수량": 163, "평점": 3.3}, {"날짜": "2023-01-02", "카테고리": "스포츠", "지역": "대구", "채널": "오프라인", "매출액": 427.0, "이익": 101.0, "수량": 165, "평점": 4.7}, {"날짜": "2023-01-03", "카테고리": "식품", "지역": "부산", "채널": "온라인", "매출액": 739.0, "이익": 47.0, "수량": 379, "평점": 4.0}, {"날짜": "2023-01-04", "카테고리": "스포츠", "지역": "서울", "채널": "모바일", "매출액": 435.0, "이익": 133.0, "수량": 478, "평점": 4.8}, {"날짜": "2023-01-05", "카테고리": "스포츠", "지역": "서울", "채널": "온라인", "매출액": 390.0, "이익": 84.0, "수량": 58, "평점": 4.6}, {"날짜": "2023-01-06", "카테고리": "의류", "지역": "서울", "채널": "오프라인", "매출액": 413.0, "이익": 68.0, "수량": 464, "평점": 3.9}, {"날짜": "2023-01-07", "카테고리": "식품", "지역": "대구", "채널": "오프라인", "매출액": 480.0, "이익": 76.0, "수량": 346, "평점": 3.0}, {"날짜": "2023-01-08", "카테고리": "식품", "지역": "부산", "채널": "모바일", "매출액": 381.0, "이익": 46.0, "수량": 93, "평점": 3.5}, {"날짜": "2023-01-09", "카테고리": "식품", "지역": "서울", "채널": "오프라인", "매출액": 445.0, "이익": 97.0, "수량": 370, "평점": 4.1}, {"날짜": "2023-01-10", "카테고리": "스포츠", "지역": "인천", "채널": "온라인", "매출액": 524.0, "이익": 197.0, "수량": 186, "평점": 4.3}, {"날짜": "2023-01-11", "카테고리": "가구", "지역": "서울", "채널": "모바일", "매출액": 483.0, "이익": 90.0, "수량": 157, "평점": 3.5}, {"날짜": "2023-01-12", "카테고리": "식품", "지역": "서울", "채널": "온라인", "매출액": 625.0, "이익": 119.0, "수량": 127, "평점": 3.3}, {"날짜": "2023-01-13", "카테고리": "스포츠", "지역": "대구", "채널": "온라인", "매출액": 452.0, "이익": 51.0, "수량": 351, "평점": 4.7}, {"날짜": "2023-01-14", "카테고리": "의류", "지역": "대구", "채널": "오프라인", "매출액": 469.0, "이익": 98.0, "수량": 485, "평점": 5.0}, {"날짜": "2023-01-15", "카테고리": "가구", "지역": "부산", "채널": "오프라인", "매출액": 541.0, "이익": 152.0, "수량": 72, "평점": 4.1}, {"날짜": "2023-01-16", "카테고리": "의류", "지역": "인천", "채널": "오프라인", "매출액": 837.0, "이익": 93.0, "수량": 198, "평점": 3.3}, {"날짜": "2023-01-17", "카테고리": "가구", "지역": "대구", "채널": "오프라인", "매출액": 382.0, "이익": 61.0, "수량": 369, "평점": 3.5}, {"날짜": "2023-01-18", "카테고리": "스포츠", "지역": "서울", "채널": "오프라인", "매출액": 789.0, "이익": 127.0, "수량": 58, "평점": 3.0}, {"날짜": "2023-01-19", "카테고리": "전자제품", "지역": "부산", "채널": "모바일", "매출액": 322.0, "이익": 54.0, "수량": 336, "평점": 4.8}, {"날짜": "2023-01-20", "카테고리": "가구", "지역": "서울", "채널": "온라인", "매출액": 534.0, "이익": 37.0, "수량": 266, "평점": 3.2}, {"날짜": "2023-01-21", "카테고리": "의류", "지역": "서울", "채널": "온라인", "매출액": 449.0, "이익": 34.0, "수량": 233, "평점": 4.2}, {"날짜": "2023-01-22", "카테고리": "스포츠", "지역": "대구", "채널": "온라인", "매출액": 378.0, "이익": 38.0, "수량": 150, "평점": 3.5}, {"날짜": "2023-01-23", "카테고리": "가구", "지역": "부산", "채널": "온라인", "매출액": 605.0, "이익": 76.0, "수량": 487, "평점": 4.1}, {"날짜": "2023-01-24", "카테고리": "전자제품", "지역": "인천", "채널": "오프라인", "매출액": 590.0, "이익": 120.0, "수량": 224, "평점": 4.3}, {"날짜": "2023-01-25", "카테고리": "전자제품", "지역": "인천", "채널": "온라인", "매출액": 428.0, "이익": 159.0, "수량": 444, "평점": 4.7}, {"날짜": "2023-01-26", "카테고리": "식품", "지역": "대구", "채널": "모바일", "매출액": 186.0, "이익": 65.0, "수량": 388, "평점": 3.4}, {"날짜": "2023-01-27", "카테고리": "식품", "지역": "대구", "채널": "모바일", "매출액": 437.0, "이익": 167.0, "수량": 449, "평점": 3.0}, {"날짜": "2023-01-28", "카테고리": "의류", "지역": "부산", "채널": "온라인", "매출액": 521.0, "이익": 145.0, "수량": 220, "평점": 3.3}, {"날짜": "2023-01-29", "카테고리": "가구", "지역": "인천", "채널": "온라인", "매출액": 500.0, "이익": 128.0, "수량": 327, "평점": 4.8}, {"날짜": "2023-01-30", "카테고리": "가구", "지역": "인천", "채널": "모바일", "매출액": 613.0, "이익": 195.0, "수량": 41, "평점": 4.7}, {"날짜": "2023-01-31", "카테고리": "식품", "지역": "인천", "채널": "모바일", "매출액": 790.0, "이익": 140.0, "수량": 167, "평점": 4.2}, {"날짜": "2023-02-01", "카테고리": "가구", "지역": "서울", "채널": "오프라인", "매출액": 562.0, "이익": 78.0, "수량": 294, "평점": 4.2}, {"날짜": "2023-02-02", "카테고리": "가구", "지역": "인천", "채널": "모바일", "매출액": 585.0, "이익": 64.0, "수량": 314, "평점": 4.3}, {"날짜": "2023-02-03", "카테고리": "전자제품", "지역": "서울", "채널": "오프라인", "매출액": 522.0, "이익": 132.0, "수량": 438, "평점": 3.4}, {"날짜": "2023-02-04", "카테고리": "식품", "지역": "부산", "채널": "오프라인", "매출액": 676.0, "이익": 99.0, "수량": 486, "평점": 4.8}, {"날짜": "2023-02-05", "카테고리": "스포츠", "지역": "서울", "채널": "오프라인", "매출액": 580.0, "이익": 23.0, "수량": 295, "평점": 3.8}, {"날짜": "2023-02-06", "카테고리": "식품", "지역": "부산", "채널": "오프라인", "매출액": 612.0, "이익": 156.0, "수량": 153, "평점": 3.8}, {"날짜": "2023-02-07", "카테고리": "스포츠", "지역": "인천", "채널": "오프라인", "매출액": 771.0, "이익": 138.0, "수량": 433, "평점": 4.0}, {"날짜": "2023-02-08", "카테고리": "전자제품", "지역": "인천", "채널": "온라인", "매출액": 534.0, "이익": 14.0, "수량": 28, "평점": 3.1}, {"날짜": "2023-02-09", "카테고리": "의류", "지역": "부산", "채널": "모바일", "매출액": 459.0, "이익": 133.0, "수량": 27, "평점": 3.3}, {"날짜": "2023-02-10", "카테고리": "가구", "지역": "대구", "채널": "오프라인", "매출액": 567.0, "이익": 126.0, "수량": 266, "평점": 4.5}, {"날짜": "2023-02-11", "카테고리": "전자제품", "지역": "부산", "채널": "모바일", "매출액": 670.0, "이익": 67.0, "수량": 87, "평점": 3.2}, {"날짜": "2023-02-12", "카테고리": "가구", "지역": "대구", "채널": "모바일", "매출액": 575.0, "이익": 50.0, "수량": 380, "평점": 4.2}, {"날짜": "2023-02-13", "카테고리": "의류", "지역": "서울", "채널": "오프라인", "매출액": 659.0, "이익": 212.0, "수량": 184, "평점": 3.5}, {"날짜": "2023-02-14", "카테고리": "의류", "지역": "서울", "채널": "온라인", "매출액": 400.0, "이익": 229.0, "수량": 203, "평점": 3.8}, {"날짜": "2023-02-15", "카테고리": "전자제품", "지역": "서울", "채널": "오프라인", "매출액": 370.0, "이익": 64.0, "수량": 485, "평점": 3.6}, {"날짜": "2023-02-16", "카테고리": "의류", "지역": "인천", "채널": "온라인", "매출액": 418.0, "이익": 152.0, "수량": 122, "평점": 3.7}, {"날짜": "2023-02-17", "카테고리": "스포츠", "지역": "서울", "채널": "모바일", "매출액": 310.0, "이익": 148.0, "수량": 123, "평점": 4.4}, {"날짜": "2023-02-18", "카테고리": "의류", "지역": "대구", "채널": "온라인", "매출액": 517.0, "이익": 99.0, "수량": 231, "평점": 3.6}, {"날짜": "2023-02-19", "카테고리": "가구", "지역": "서울", "채널": "온라인", "매출액": 435.0, "이익": 164.0, "수량": 175, "평점": 4.1}, {"날짜": "2023-02-20", "카테고리": "가구", "지역": "부산", "채널": "온라인", "매출액": 685.0, "이익": 163.0, "수량": 444, "평점": 4.0}, {"날짜": "2023-02-21", "카테고리": "가구", "지역": "부산", "채널": "모바일", "매출액": 306.0, "이익": 127.0, "수량": 328, "평점": 4.3}, {"날짜": "2023-02-22", "카테고리": "가구", "지역": "인천", "채널": "모바일", "매출액": 733.0, "이익": 132.0, "수량": 141, "평점": 4.9}, {"날짜": "2023-02-23", "카테고리": "스포츠", "지역": "부산", "채널": "온라인", "매출액": 353.0, "이익": 147.0, "수량": 394, "평점": 4.5}, {"날짜": "2023-02-24", "카테고리": "식품", "지역": "대구", "채널": "온라인", "매출액": 314.0, "이익": 120.0, "수량": 273, "평점": 3.4}, {"날짜": "2023-02-25", "카테고리": "전자제품", "지역": "서울", "채널": "오프라인", "매출액": 376.0, "이익": 68.0, "수량": 422, "평점": 3.1}, {"날짜": "2023-02-26", "카테고리": "가구", "지역": "인천", "채널": "온라인", "매출액": 793.0, "이익": 33.0, "수량": 64, "평점": 3.5}, {"날짜": "2023-02-27", "카테고리": "의류", "지역": "서울", "채널": "오프라인", "매출액": 494.0, "이익": 166.0, "수량": 368, "평점": 4.2}, {"날짜": "2023-02-28", "카테고리": "가구", "지역": "서울", "채널": "온라인", "매출액": 579.0, "이익": 32.0, "수량": 140, "평점": 3.1}, {"날짜": "2023-03-01", "카테고리": "의류", "지역": "대구", "채널": "오프라인", "매출액": 472.0, "이익": 69.0, "수량": 297, "평점": 4.0}]}, "processing_time_ms": 42};
+document.addEventListener("DOMContentLoaded",()=>{const z=document.getElementById("dropZone");const b=document.createElement("button");b.textContent="🎯 샘플 데이터 데모 (34종)";b.style.cssText="margin-top:1.2rem;padding:.7rem 1.5rem;border-radius:10px;border:none;background:linear-gradient(135deg,#4f7df9,#a78bfa);color:#fff;font-weight:600;font-size:.9rem;cursor:pointer;font-family:inherit;position:relative;z-index:2;";b.onclick=(e)=>{e.stopPropagation();renderResults(DEMO_DATA)};z.appendChild(b)});
 </script></body></html>

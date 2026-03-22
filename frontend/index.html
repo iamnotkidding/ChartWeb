@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ChartForge — 엑셀 데이터 차트 추천</title>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts-wordcloud@2.1.0/dist/echarts-wordcloud.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
@@ -40,7 +41,9 @@
 <div class="loading-overlay" id="loading">
   <div class="loader">
     <div class="spinner"></div>
-    <p>데이터를 분석하고 최적의 차트를 추천하는 중...</p>
+    <p id="loadingMsg">준비 중...</p>
+    <div class="progress-steps" id="progressSteps"></div>
+    <div class="p-bar"><div class="p-bar-fill" id="progressBar"></div></div>
   </div>
 </div>
 

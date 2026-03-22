@@ -23,46 +23,211 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 async function uploadFile(file) {
-  const loading = document.getElementById('loading');
-  const loaderMsg = loading.querySelector('p');
   const sizeMB = (file.size / 1024 / 1024).toFixed(1);
-  loaderMsg.innerHTML = `<strong>${file.name}</strong> (${sizeMB}MB) 분석 중...` +
-    (file.size > 10*1024*1024 ? '<br><span style="font-size:.8rem;color:var(--amber)">대용량 파일 — 스마트 샘플링 적용 중</span>' : '');
-  loading.classList.add('active');
+  _progressStart(`${file.name} (${sizeMB}MB)`);
   const form = new FormData();
   form.append('file', file);
   try {
+    _progressStep('upload', '서버로 파일 전송 중...');
     const res = await fetch(API_BASE + '/api/analyze', { method: 'POST', body: form });
     if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || `HTTP ${res.status}`); }
-    renderResults(await res.json());
+    _progressDone('upload');
+
+    _progressStep('parse', 'API 응답 파싱 중...');
+    const data = await res.json();
+    _progressDone('parse');
+
+    await renderResultsAsync(data);
   } catch (e) { alert('오류: ' + e.message); }
-  finally { loading.classList.remove('active'); }
+  finally { _progressEnd(); }
 }
 
 // ─────────────────────────────────────────────────────
-// Render Pipeline
+// Non-blocking Render Pipeline
 // ─────────────────────────────────────────────────────
+function _yield() { return new Promise(r => setTimeout(r, 0)); }
+
+// Public entry point (called from demo button too)
 function renderResults(data) {
-  // Dispose previous charts
+  _progressStart(data.filename || '데이터');
+  // Mark upload/parse as already done (data is pre-loaded)
+  _progressStep('upload', '데이터 로드됨');
+  _progressDone('upload');
+  _progressStep('parse', '파싱 완료');
+  _progressDone('parse');
+  renderResultsAsync(data).then(() => _progressEnd());
+}
+
+async function renderResultsAsync(data) {
   chartInstances.forEach(c => c.dispose());
   chartInstances.length = 0;
-
-  // Store globally and init colors
   currentData = data;
-  initColumnColors(data.column_analysis);
-  initValueColors(data.column_analysis);
 
   const results = document.getElementById('results');
   results.classList.add('active');
-  results.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
+  // Step 1: Colors
+  _progressStep('colors', '색상 시스템 초기화...');
+  initColumnColors(data.column_analysis);
+  initValueColors(data.column_analysis);
+  _progressDone('colors');
+  await _yield();
+
+  // Step 2: Summary
+  _progressStep('summary', '파일 요약 생성...');
   renderSummary(data);
-  renderColumns(data.column_analysis);
-  renderRecommendations(data);
-  renderTable(data.preview);
+  _progressDone('summary');
+  await _yield();
 
-  // Resize handler
+  // Step 3: Columns
+  _progressStep('columns', `컬럼 분석 렌더링 (${data.column_analysis.length}개)...`);
+  renderColumns(data.column_analysis);
+  _progressDone('columns');
+  await _yield();
+
+  // Step 4: Chart cards (DOM only, no rendering yet)
+  _progressStep('cards', `차트 카드 생성 (${data.recommendations.length}개)...`);
+  _createChartCards(data);
+  _progressDone('cards');
+  await _yield();
+
+  // Step 5: Render charts one by one (non-blocking)
+  const total = data.recommendations.length;
+  for (let i = 0; i < total; i++) {
+    const rec = data.recommendations[i];
+    const chartId = `echart-${i}`;
+    _progressStep('chart', `차트 렌더링 ${i + 1}/${total}: ${rec.name_ko}...`, Math.round((i / total) * 100));
+    try { buildEChart(chartId, rec, data.preview); } catch (e) { console.warn(`Chart ${i} failed:`, e); }
+    // Yield every chart to prevent blocking
+    if (i % 2 === 0) await _yield();
+  }
+  _progressDone('chart');
+  await _yield();
+
+  // Step 6: Table
+  _progressStep('table', '데이터 테이블 생성...');
+  renderTable(data.preview);
+  _progressDone('table');
+
+  results.scrollIntoView({ behavior: 'smooth', block: 'start' });
   window.addEventListener('resize', () => chartInstances.forEach(c => c.resize()));
+}
+
+function _createChartCards(data) {
+  const el = document.getElementById('recsGrid');
+  el.innerHTML = '';
+
+  data.recommendations.forEach((rec, idx) => {
+    const card = document.createElement('div');
+    const wideTypes = ['sankey','parallel','themeriver','treemap','sunburst','heatmap','calendar_heatmap','cross_heatmap','kpi_cards','wordcloud'];
+    card.className = `rec-card animate-in${wideTypes.includes(rec.chart_type) ? ' full-width' : ''}`;
+    card.style.animationDelay = `${idx * 0.04}s`;
+    card.dataset.idx = idx;
+
+    const scoreClass = rec.score >= 85 ? 'high' : rec.score >= 70 ? 'mid' : 'low';
+    const mappingHtml = Object.entries(rec.mapping).map(([axis, fields]) => {
+      const fs = Array.isArray(fields) ? fields : [fields];
+      return fs.map(f => `<span class="mapping-tag"><span class="axis">${axis}</span><span class="field">${f}</span></span>`).join('');
+    }).join('');
+
+    const chartId = `echart-${idx}`;
+    const chartHeight = ['sankey','heatmap','parallel','themeriver','treemap','sunburst','calendar_heatmap','cross_heatmap'].includes(rec.chart_type) ? '380px' : '300px';
+
+    card.innerHTML = `
+      <div class="rec-card-head">
+        <div class="rec-info" onclick="toggleCollapse(${idx})">
+          <span class="rec-icon">${rec.icon}</span>
+          <div><div class="rec-title">${rec.name_ko}</div><div class="rec-subtitle">${rec.name}</div></div>
+        </div>
+        <div class="rec-actions" onclick="event.stopPropagation()">
+          <span class="rec-score ${scoreClass}">${rec.score}</span>
+          <div class="menu-wrap">
+            <button class="menu-btn" onclick="toggleMenu(${idx}, this)" title="메뉴">⋯</button>
+            <div class="menu-dropdown" id="menu-${idx}">
+              <button class="menu-item" onclick="saveChartImage(${idx})"><span class="mi-icon">📷</span>이미지로 저장</button>
+              <button class="menu-item" onclick="copyChartCode(${idx})"><span class="mi-icon">📋</span>코드 복사</button>
+              <button class="menu-item" onclick="exportChartCSV(${idx})"><span class="mi-icon">💾</span>데이터 CSV 저장</button>
+              <div style="border-top:1px solid var(--border);margin:.3rem 0"></div>
+              <button class="menu-item" onclick="exportOverlaysJSON(${idx})"><span class="mi-icon">📤</span>오버레이 저장</button>
+              <button class="menu-item" onclick="importOverlaysJSON(${idx})"><span class="mi-icon">📥</span>오버레이 로드</button>
+            </div>
+          </div>
+          <button class="collapse-btn" onclick="toggleCollapse(${idx})" title="접기/펼치기">▼</button>
+        </div>
+      </div>
+      <div class="rec-body">
+        <div class="rec-reason">${rec.reason}</div>
+        <div class="rec-mapping">${mappingHtml}</div>
+        <div class="chart-container" style="height:${chartHeight}" ondblclick="onContainerDblClick(event,${idx})">
+          <div id="${chartId}" style="width:100%;height:100%"></div>
+          <div class="chart-overlay" id="overlay-${idx}"></div>
+          <div class="chart-toolbar">
+            <button class="tb-btn" onclick="toggleOverlayVisibility(${idx}, this)" title="오버레이 보기/숨기기">👁</button>
+            <button class="tb-btn" onclick="startMemo(${idx})" title="메모 추가">✎</button>
+            <button class="tb-btn" onclick="addHLine(${idx})" title="가로 점선">━</button>
+            <button class="tb-btn" onclick="addVLine(${idx})" title="세로 점선">┃</button>
+            <button class="tb-btn" onclick="addRect(${idx})" title="점선 박스">▢</button>
+            <button class="tb-btn" onclick="clearOverlays(${idx})" title="오버레이 모두 제거">🗑</button>
+          </div>
+        </div>
+      </div>`;
+    el.appendChild(card);
+    card._rec = rec;
+    card._chartId = chartId;
+  });
+}
+
+// ─────────────────────────────────────────────────────
+// Progress Tracker
+// ─────────────────────────────────────────────────────
+const STEP_LABELS = {
+  upload: '📤 파일 전송', parse: '📋 응답 파싱', colors: '🎨 색상 초기화',
+  summary: '📊 파일 요약', columns: '🔬 컬럼 분석', cards: '🃏 차트 카드 생성',
+  chart: '📈 차트 렌더링', table: '📄 데이터 테이블',
+};
+let _stepTimers = {};
+
+function _progressStart(title) {
+  const loading = document.getElementById('loading');
+  document.getElementById('loadingMsg').innerHTML = `<strong>${title}</strong>`;
+  document.getElementById('progressSteps').innerHTML = Object.entries(STEP_LABELS).map(([k, v]) =>
+    `<div class="p-step" id="ps-${k}"><span class="p-icon">○</span><span class="p-label">${v}</span><span class="p-time" id="pt-${k}"></span></div>`
+  ).join('');
+  document.getElementById('progressBar').style.width = '0%';
+  _stepTimers = {};
+  loading.classList.add('active');
+}
+
+function _progressStep(id, detail, pct) {
+  _stepTimers[id] = performance.now();
+  const step = document.getElementById(`ps-${id}`);
+  if (step) { step.className = 'p-step active'; step.querySelector('.p-icon').textContent = '⟳'; }
+  // Update bar
+  const keys = Object.keys(STEP_LABELS);
+  const idx = keys.indexOf(id);
+  const barPct = pct != null ? pct : Math.round(((idx + 0.5) / keys.length) * 100);
+  document.getElementById('progressBar').style.width = barPct + '%';
+  // Update main message
+  document.getElementById('loadingMsg').innerHTML = detail || '';
+}
+
+function _progressDone(id) {
+  const elapsed = _stepTimers[id] ? Math.round(performance.now() - _stepTimers[id]) : 0;
+  const step = document.getElementById(`ps-${id}`);
+  if (step) {
+    step.className = 'p-step done';
+    step.querySelector('.p-icon').textContent = '✓';
+    const timeEl = document.getElementById(`pt-${id}`);
+    if (timeEl) timeEl.textContent = elapsed >= 1000 ? (elapsed / 1000).toFixed(1) + 's' : elapsed + 'ms';
+  }
+  const keys = Object.keys(STEP_LABELS);
+  const idx = keys.indexOf(id);
+  document.getElementById('progressBar').style.width = Math.round(((idx + 1) / keys.length) * 100) + '%';
+}
+
+function _progressEnd() {
+  document.getElementById('progressBar').style.width = '100%';
+  setTimeout(() => document.getElementById('loading').classList.remove('active'), 400);
 }
 
 function renderSummary(data) {
@@ -115,11 +280,15 @@ function renderColumns(cols) {
         </div>`;
     }
 
+    const isDisabled = disabledColumns.has(c.name);
     return `
-    <div class="col-card animate-in">
+    <div class="col-card animate-in${isDisabled ? ' disabled' : ''}" data-colname="${c.name}">
       <div class="col-card-header">
         <span class="col-name">${c.name}</span>
-        <span class="col-type ${c.semantic_type}">${c.semantic_type}</span>
+        <div style="display:flex;align-items:center;gap:.4rem">
+          <span class="col-type ${c.semantic_type}">${c.semantic_type}</span>
+          <button class="col-toggle${isDisabled ? ' off' : ''}" onclick="onColumnToggle('${c.name}', this)" title="${isDisabled ? '차트에 포함' : '차트에서 제외'}"></button>
+        </div>
       </div>
       <div class="col-color-row">
         <div class="col-color-swatch" id="swatch-${idx}" style="background:${color}">
@@ -157,81 +326,52 @@ function onValueColorChange(input) {
   const vKey = input.dataset.vkey;
   const newColor = input.value;
   valueColors[vKey] = newColor;
-
-  // Update dot visual
   input.parentElement.style.background = newColor;
-
   reRenderCharts();
 }
 
-function renderRecommendations(data) {
-  const el = document.getElementById('recsGrid');
-  el.innerHTML = '';
+function onColumnToggle(colName, btn) {
+  if (disabledColumns.has(colName)) {
+    disabledColumns.delete(colName);
+    btn.classList.remove('off');
+    btn.title = '차트에서 제외';
+  } else {
+    disabledColumns.add(colName);
+    btn.classList.add('off');
+    btn.title = '차트에 포함';
+  }
+  // Update column card visual
+  const card = btn.closest('.col-card');
+  if (card) card.classList.toggle('disabled', disabledColumns.has(colName));
 
-  data.recommendations.forEach((rec, idx) => {
-    const card = document.createElement('div');
-    const wideTypes = ['sankey','parallel','themeriver','treemap','sunburst','heatmap','calendar_heatmap'];
-    card.className = `rec-card animate-in${wideTypes.includes(rec.chart_type) ? ' full-width' : ''}`;
-    card.style.animationDelay = `${idx * 0.06}s`;
-    card.dataset.idx = idx;
+  applyColumnFilter();
+}
 
-    const scoreClass = rec.score >= 85 ? 'high' : rec.score >= 70 ? 'mid' : 'low';
-    const mappingHtml = Object.entries(rec.mapping).map(([axis, fields]) => {
-      const fs = Array.isArray(fields) ? fields : [fields];
-      return fs.map(f => `<span class="mapping-tag"><span class="axis">${axis}</span><span class="field">${f}</span></span>`).join('');
-    }).join('');
+function applyColumnFilter() {
+  if (!currentData) return;
+  document.querySelectorAll('.rec-card').forEach(card => {
+    const idx = parseInt(card.dataset.idx);
+    const rec = currentData.recommendations[idx];
+    if (!rec) return;
 
-    const chartId = `echart-${idx}`;
-    const chartHeight = ['sankey','heatmap','parallel','themeriver','treemap','sunburst','calendar_heatmap'].includes(rec.chart_type) ? '380px' : '300px';
+    // Check if any disabled column is used in this chart's mapping
+    const m = rec.mapping;
+    const usedCols = new Set();
+    if (m.x) { (Array.isArray(m.x) ? m.x : [m.x]).forEach(c => usedCols.add(c)); }
+    if (m.y) { m.y.forEach(c => usedCols.add(c)); }
+    if (m.group) usedCols.add(m.group);
+    // Remove meta-columns
+    usedCols.delete('columns'); usedCols.delete('rows'); usedCols.delete('summary');
 
-    card.innerHTML = `
-      <div class="rec-card-head">
-        <div class="rec-info" onclick="toggleCollapse(${idx})">
-          <span class="rec-icon">${rec.icon}</span>
-          <div><div class="rec-title">${rec.name_ko}</div><div class="rec-subtitle">${rec.name}</div></div>
-        </div>
-        <div class="rec-actions" onclick="event.stopPropagation()">
-          <span class="rec-score ${scoreClass}">${rec.score}</span>
-          <div class="menu-wrap">
-            <button class="menu-btn" onclick="toggleMenu(${idx}, this)" title="메뉴">⋯</button>
-            <div class="menu-dropdown" id="menu-${idx}">
-              <button class="menu-item" onclick="saveChartImage(${idx})"><span class="mi-icon">📷</span>이미지로 저장</button>
-              <button class="menu-item" onclick="copyChartCode(${idx})"><span class="mi-icon">📋</span>코드 복사</button>
-              <button class="menu-item" onclick="exportChartCSV(${idx})"><span class="mi-icon">💾</span>데이터 CSV 저장</button>
-              <div style="border-top:1px solid var(--border);margin:.3rem 0"></div>
-              <button class="menu-item" onclick="exportOverlaysJSON(${idx})"><span class="mi-icon">📤</span>오버레이 저장</button>
-              <button class="menu-item" onclick="importOverlaysJSON(${idx})"><span class="mi-icon">📥</span>오버레이 로드</button>
-            </div>
-          </div>
-          <button class="collapse-btn" onclick="toggleCollapse(${idx})" title="접기/펼치기">▼</button>
-        </div>
-      </div>
-      <div class="rec-body">
-        <div class="rec-reason">${rec.reason}</div>
-        <div class="rec-mapping">${mappingHtml}</div>
-        <div class="chart-container" style="height:${chartHeight}" ondblclick="onContainerDblClick(event,${idx})">
-          <div id="${chartId}" style="width:100%;height:100%"></div>
-          <div class="chart-overlay" id="overlay-${idx}"></div>
-          <div class="chart-toolbar">
-            <button class="tb-btn" onclick="toggleOverlayVisibility(${idx}, this)" title="오버레이 보기/숨기기">👁</button>
-            <button class="tb-btn" onclick="startMemo(${idx})" title="메모 추가">✎</button>
-            <button class="tb-btn" onclick="addHLine(${idx})" title="가로 점선">━</button>
-            <button class="tb-btn" onclick="addVLine(${idx})" title="세로 점선">┃</button>
-            <button class="tb-btn" onclick="addRect(${idx})" title="점선 박스">▢</button>
-            <button class="tb-btn" onclick="clearOverlays(${idx})" title="오버레이 모두 제거">🗑</button>
-          </div>
-        </div>
-      </div>`;
-    el.appendChild(card);
-
-    // Store rec data for menu functions
-    card._rec = rec;
-    card._chartId = chartId;
-
-    requestAnimationFrame(() => {
-      try { buildEChart(chartId, rec, data.preview); } catch(e) { console.warn('EChart render failed:', e); }
-    });
+    const hasDisabled = [...usedCols].some(c => disabledColumns.has(c));
+    card.classList.toggle('col-hidden', hasDisabled);
   });
+
+  // Update count in summary
+  const visibleCount = document.querySelectorAll('.rec-card:not(.col-hidden)').length;
+  const totalCount = currentData.recommendations.length;
+  const countEl = document.getElementById('fileSummary')?.querySelector('.value.accent:last-of-type');
+  // No need to update if element doesn't exist
 }
 
 // ─── Collapse ───

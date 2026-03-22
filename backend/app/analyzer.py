@@ -142,6 +142,12 @@ CHART_CATALOG = {
     "waterfall":      {"name":"Waterfall Chart",     "name_ko":"폭포 차트",        "icon":"🪜","description":"값의 증감 순차 표시","best_for":"증감 분석"},
     "gauge":          {"name":"Gauge",               "name_ko":"게이지",          "icon":"🎛️","description":"단일 KPI 계기판","best_for":"KPI 모니터링"},
     "combo_bar_line": {"name":"Combo Bar+Line",     "name_ko":"바+라인 조합",     "icon":"📊📈","description":"막대와 라인을 하나의 차트에 조합하여 두 지표를 동시 비교","best_for":"매출 vs 이익률, 수량 vs 평균 등"},
+    # ── New v3 ──
+    "percent_bar":    {"name":"100% Stacked Bar",   "name_ko":"100% 누적 막대",   "icon":"📊","description":"각 카테고리를 100%로 정규화하여 비율 추세를 비교","best_for":"비율 트렌드, 구성비 변화"},
+    "wordcloud":      {"name":"Word Cloud",         "name_ko":"워드 클라우드",     "icon":"☁️","description":"카테고리 값의 빈도를 글자 크기로 표현","best_for":"키워드 빈도, 텍스트 분석"},
+    "cross_heatmap":  {"name":"Cross Heatmap",      "name_ko":"크로스 히트맵",     "icon":"🟧","description":"두 카테고리 축의 교차 수치를 색상으로 표현","best_for":"교차 분석, 매트릭스 비교"},
+    "slope":          {"name":"Slope Chart",        "name_ko":"기울기 차트",       "icon":"📐","description":"두 시점 간의 순위나 값 변화를 기울기선으로 비교","best_for":"전후 비교, 순위 변동"},
+    "kpi_cards":      {"name":"KPI Dashboard",      "name_ko":"KPI 대시보드",     "icon":"🏷️","description":"핵심 수치 지표를 카드 형태로 요약","best_for":"요약 대시보드, 핵심 지표"},
 }
 
 # ─── Recommendation Engine ───────────────────────────────────────────────────
@@ -312,7 +318,7 @@ def recommend_charts(columns, df):
         if nc.get("stats"):
             add("gauge", 45, nc["name"], nc["name"], reason=f"{nc['name']} 평균 게이지")
 
-    # R13: Combo Bar+Line — categorical/temporal X + 2 numerics
+    # R13: Combo Bar+Line
     if len(numerics) >= 2:
         x_col = temporals[0]["name"] if temporals else (categoricals[0]["name"] if categoricals else None)
         if x_col:
@@ -321,6 +327,39 @@ def recommend_charts(columns, df):
                 if i == j: continue
                 add("combo_bar_line", 84, x_col, [numerics[i]["name"], numerics[j]["name"]],
                     reason=f"{x_col}별 {numerics[i]['name']}(막대)와 {numerics[j]['name']}(라인)을 동시 비교합니다")
+
+    # R14: 100% Stacked Bar — proportion trends
+    if len(categoricals) >= 2 and numerics:
+        add("percent_bar", 76, categoricals[0]["name"], numerics[0]["name"],
+            group=categoricals[1]["name"],
+            reason=f"{categoricals[0]['name']}별 {categoricals[1]['name']} 비율 추세를 100% 누적으로 봅니다")
+    if temporals and categoricals and numerics:
+        add("percent_bar", 79, temporals[0]["name"], numerics[0]["name"],
+            group=categoricals[0]["name"],
+            reason=f"시간별 {categoricals[0]['name']} 구성비 변화를 100% 누적으로 추적합니다")
+
+    # R15: Word Cloud — category frequency
+    for cat in categoricals + high_cards:
+        if cat["unique_count"] >= 5:
+            add("wordcloud", 55, cat["name"], cat["name"],
+                reason=f"{cat['name']}의 빈도를 워드 클라우드로 시각화합니다")
+            break
+
+    # R16: Cross Heatmap — 2 categoricals + numeric
+    if len(categoricals) >= 2 and numerics:
+        add("cross_heatmap", 69, categoricals[0]["name"], numerics[0]["name"],
+            group=categoricals[1]["name"],
+            reason=f"{categoricals[0]['name']} × {categoricals[1]['name']} 교차 테이블을 히트맵으로 봅니다")
+
+    # R17: Slope Chart — categorical + 2 numerics
+    if categoricals and len(numerics) >= 2:
+        add("slope", 62, categoricals[0]["name"], [numerics[0]["name"], numerics[1]["name"]],
+            reason=f"{categoricals[0]['name']}별 {numerics[0]['name']} vs {numerics[1]['name']} 변화를 기울기로 비교")
+
+    # R18: KPI Cards — top numerics summary
+    if len(numerics) >= 2:
+        add("kpi_cards", 50, "summary", [n["name"] for n in numerics[:6]],
+            reason=f"핵심 수치 {len(numerics[:6])}개를 KPI 카드로 요약합니다")
 
     # ── Diversity selection ──
     recs.sort(key=lambda r: r["score"], reverse=True)
@@ -336,7 +375,7 @@ def recommend_charts(columns, df):
     ds = set(id(r) for r in diverse)
     for r in unique:
         if id(r) not in ds: diverse.append(r); ds.add(id(r))
-    return diverse[:30]
+    return diverse[:35]
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────

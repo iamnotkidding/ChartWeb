@@ -75,21 +75,35 @@ header{
 }
 input[type=file]{display:none}
 
-/* ── Loading ── */
+/* ── Loading / Progress Panel ── */
 .loading-overlay{
   display:none;position:fixed;inset:0;z-index:9999;
   background:rgba(10,11,15,.92);
   place-items:center;backdrop-filter:blur(8px);
 }
 .loading-overlay.active{display:grid}
-.loader{text-align:center}
+.loader{text-align:center;max-width:420px;width:90%}
 .spinner{
-  width:56px;height:56px;border:3px solid var(--border);
+  width:48px;height:48px;border:3px solid var(--border);
   border-top-color:var(--accent);border-radius:50%;
-  animation:spin .8s linear infinite;margin:0 auto 1.5rem;
+  animation:spin .8s linear infinite;margin:0 auto 1rem;
 }
 @keyframes spin{to{transform:rotate(360deg)}}
-.loader p{color:var(--text-dim);font-size:.95rem}
+.loader p{color:var(--text-dim);font-size:.9rem}
+.progress-steps{margin-top:1.2rem;text-align:left}
+.p-step{
+  display:flex;align-items:center;gap:.65rem;padding:.4rem 0;
+  font-size:.8rem;color:var(--text-muted);transition:all .2s;
+}
+.p-step.active{color:var(--accent);font-weight:600}
+.p-step.done{color:var(--green)}
+.p-step .p-icon{width:18px;text-align:center;font-size:.85rem}
+.p-step .p-label{flex:1}
+.p-step .p-time{font-family:'JetBrains Mono',monospace;font-size:.65rem;min-width:42px;text-align:right;color:var(--text-muted)}
+.p-step.active .p-icon{animation:pulse 1s ease infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.p-bar{margin-top:1rem;height:4px;border-radius:2px;background:var(--surface3);overflow:hidden}
+.p-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--violet));border-radius:2px;transition:width .3s;width:0%}
 
 /* ── Results Layout ── */
 .results{display:none;max-width:1400px;margin:0 auto;padding:0 2rem 4rem}
@@ -126,6 +140,19 @@ input[type=file]{display:none}
 .col-card:hover{border-color:var(--border-hover);transform:translateY(-1px)}
 .col-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem}
 .col-name{font-weight:600;font-size:.95rem;font-family:'JetBrains Mono',monospace}
+/* Column toggle */
+.col-toggle{
+  width:36px;height:20px;border-radius:10px;border:none;cursor:pointer;
+  background:var(--green);position:relative;transition:background .2s;flex-shrink:0;
+}
+.col-toggle::after{
+  content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;
+  border-radius:50%;background:#fff;transition:transform .2s;
+}
+.col-toggle.off{background:var(--surface3)}
+.col-toggle.off::after{transform:translateX(16px);background:var(--text-muted)}
+.col-card.disabled{opacity:.4;filter:grayscale(.6)}
+.col-card.disabled .col-color-row,.col-card.disabled .val-colors-section,.col-card.disabled .col-samples{display:none}
 .col-color-row{display:flex;align-items:center;gap:.5rem;margin-bottom:.7rem}
 .col-color-swatch{
   width:28px;height:28px;border-radius:8px;border:2px solid var(--border);
@@ -184,6 +211,7 @@ input[type=file]{display:none}
 }
 .rec-card:hover{border-color:var(--accent);box-shadow:0 4px 24px var(--accent-glow)}
 .rec-card.full-width{grid-column:1 / -1}
+.rec-card.col-hidden{display:none}
 .rec-card-head{
   padding:1rem 1.2rem;display:flex;align-items:center;justify-content:space-between;
   border-bottom:1px solid var(--border);
@@ -402,3 +430,25 @@ input[type=file]{display:none}
 @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 .animate-in{animation:fadeUp .5s ease forwards;opacity:0}
 .delay-1{animation-delay:.1s}.delay-2{animation-delay:.2s}.delay-3{animation-delay:.3s}
+
+/* ── Overlay Properties Panel ── */
+.ov-props{
+  position:absolute;z-index:60;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:.7rem;min-width:170px;box-shadow:0 8px 32px rgba(0,0,0,.5);
+  font-size:.75rem;color:var(--text-dim);pointer-events:auto;
+}
+.props-title{font-weight:700;font-size:.8rem;color:var(--text);margin-bottom:.5rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
+.ov-props label{display:flex;align-items:center;gap:.4rem;margin-bottom:.4rem}
+.ov-props label span{font-size:.65rem;color:var(--text-muted);min-width:28px;text-align:right;font-family:'JetBrains Mono',monospace}
+.ov-props input[type=range]{flex:1;height:4px;accent-color:var(--accent)}
+.ov-props input[type=color]{width:24px;height:20px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent}
+.props-btn{
+  display:block;width:100%;padding:.35rem;margin-top:.3rem;border:none;border-radius:6px;
+  background:var(--surface3);color:var(--text-dim);font-size:.72rem;cursor:pointer;
+  font-family:inherit;transition:all .1s;text-align:center;
+}
+.props-btn:hover{background:var(--surface2);color:var(--text)}
+.props-btn.close{margin-top:.5rem;color:var(--text-muted)}
+.props-row{display:flex;gap:.3rem;margin-top:.3rem}
+.props-row .props-btn{flex:1}

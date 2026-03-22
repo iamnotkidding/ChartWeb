@@ -6,6 +6,7 @@
 // ─────────────────────────────────────────────────────
 const columnColors = {};   // colName → hex color
 const valueColors  = {};   // "colName::value" → hex color
+const disabledColumns = new Set(); // columns excluded from charts
 let currentData = null;    // latest analysis result
 
 // Column-level color
@@ -59,5 +60,8 @@ function reRenderCharts() {
   if (!currentData) return;
   chartInstances.forEach(c => c.dispose());
   chartInstances.length = 0;
-  renderRecommendations(currentData);
+  // Only re-render the ECharts, not the DOM cards
+  currentData.recommendations.forEach((rec, i) => {
+    try { buildEChart(`echart-${i}`, rec, currentData.preview); } catch(e) {}
+  });
 }

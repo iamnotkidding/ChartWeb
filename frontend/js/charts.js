@@ -950,6 +950,143 @@ function buildEChart(domId, rec, preview) {
     };
   }
 
+  // ── 100% STACKED BAR ──
+  else if (type === 'percent_bar') {
+    const labels = limit([...new Set(getCol(m.x))], 20);
+    const groups = [...new Set(getCol(m.group))].slice(0, 8);
+    // Calculate totals per label
+    const totals = labels.map(l => {
+      return groups.reduce((s, g) => {
+        const vals = rows.filter(r => String(r[m.x])===String(l) && String(r[m.group])===String(g)).map(r=>Number(r[m.y[0]])).filter(v=>!isNaN(v));
+        return s + (vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0);
+      }, 0);
+    });
+    option = {
+      tooltip: { trigger:'axis', axisPointer:{type:'shadow'}, formatter: (params) => {
+        let s = params[0].name + '<br>';
+        params.forEach(p => { s += `${p.marker} ${p.seriesName}: ${p.value.toFixed(1)}%<br>`; });
+        return s;
+      }},
+      legend: { show:true, bottom:0 },
+      grid: { top:15, right:20, bottom:40, left:50, containLabel:true },
+      xAxis: { type:'category', data:labels },
+      yAxis: { type:'value', max:100, axisLabel:{formatter:'{value}%'} },
+      series: groups.map((g, i) => ({
+        name:g, type:'bar', stack:'pct',
+        data: labels.map((l, li) => {
+          const vals = rows.filter(r => String(r[m.x])===String(l) && String(r[m.group])===String(g)).map(r=>Number(r[m.y[0]])).filter(v=>!isNaN(v));
+          const avg = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
+          return totals[li] ? +(avg/totals[li]*100).toFixed(1) : 0;
+        }),
+        itemStyle: { color: VC(m.group, g) },
+        barMaxWidth: 40,
+      })),
+    };
+  }
+
+  // ── WORD CLOUD ──
+  else if (type === 'wordcloud') {
+    const col = m.x;
+    const freq = {};
+    rows.forEach(r => { const v = r[col]; if (v != null) freq[String(v)] = (freq[String(v)]||0)+1; });
+    const words = Object.entries(freq).map(([name,value]) => ({name, value})).sort((a,b) => b.value-a.value).slice(0, 80);
+    const maxV = Math.max(...words.map(w => w.value), 1);
+    option = {
+      tooltip: { formatter: p => `${p.name}: ${p.value}` },
+      series: [{
+        type: 'wordCloud',
+        shape: 'circle',
+        left: 'center', top: 'center', width: '90%', height: '85%',
+        sizeRange: [12, 52],
+        rotationRange: [-30, 30],
+        gridSize: 8,
+        textStyle: {
+          fontFamily: "'Noto Sans KR', sans-serif",
+          fontWeight: 700,
+          color: () => PALETTE[Math.floor(Math.random()*PALETTE.length)],
+        },
+        emphasis: { textStyle: { shadowBlur: 10, shadowColor: '#000' } },
+        data: words,
+      }],
+    };
+  }
+
+  // ── CROSS HEATMAP (cat × cat) ──
+  else if (type === 'cross_heatmap') {
+    const xCats = [...new Set(getCol(m.x))].slice(0, 12);
+    const yCats = [...new Set(getCol(m.group))].slice(0, 12);
+    const data = []; let minV = Infinity, maxV = -Infinity;
+    xCats.forEach((xc, xi) => {
+      yCats.forEach((yc, yi) => {
+        const vals = rows.filter(r => String(r[m.x])===String(xc) && String(r[m.group])===String(yc)).map(r=>Number(r[m.y[0]])).filter(v=>!isNaN(v));
+        const avg = vals.length ? +(vals.reduce((s,v)=>s+v,0)/vals.length).toFixed(1) : 0;
+        data.push([xi, yi, avg]);
+        if (avg<minV) minV=avg; if (avg>maxV) maxV=avg;
+      });
+    });
+    option = {
+      tooltip: { formatter: p => `${xCats[p.value[0]]} × ${yCats[p.value[1]]}<br>값: ${p.value[2]}` },
+      grid: { top:10, right:80, bottom:50, left:80, containLabel:true },
+      xAxis: { type:'category', data:xCats, axisLabel:{rotate:30,fontSize:9} },
+      yAxis: { type:'category', data:yCats, axisLabel:{fontSize:9} },
+      visualMap: { min:minV, max:maxV, calculable:true, orient:'vertical', right:0, top:'center',
+        textStyle:{color:'#8b8d9e',fontSize:9}, inRange:{color:['#1a1b24','#4f7df980','#4f7df9']}, itemHeight:140 },
+      series: [{ type:'heatmap', data:data,
+        label:{show:true,color:'#e8e9f0',fontSize:9,formatter:p=>p.value[2]},
+        emphasis:{itemStyle:{shadowBlur:10}} }],
+    };
+  }
+
+  // ── SLOPE CHART ──
+  else if (type === 'slope' && m.y.length >= 2) {
+    const cats = [...new Set(getCol(m.x))].slice(0, 10);
+    const col1 = m.y[0], col2 = m.y[1];
+    option = {
+      tooltip: {},
+      grid: { top:30, right:80, bottom:20, left:80 },
+      xAxis: { type:'category', data:[col1, col2], axisLine:{lineStyle:{color:'#2a2b38'}},
+        axisLabel:{fontSize:11,color:'#8b8d9e',fontWeight:600} },
+      yAxis: { type:'value', show:false },
+      series: cats.map((c, i) => {
+        const v1 = rows.filter(r=>String(r[m.x])===String(c)).map(r=>Number(r[col1])).filter(v=>!isNaN(v));
+        const v2 = rows.filter(r=>String(r[m.x])===String(c)).map(r=>Number(r[col2])).filter(v=>!isNaN(v));
+        const a1 = v1.length ? v1.reduce((s,v)=>s+v,0)/v1.length : 0;
+        const a2 = v2.length ? v2.reduce((s,v)=>s+v,0)/v2.length : 0;
+        const clr = VC(m.x, c);
+        return {
+          name:c, type:'line', data:[+a1.toFixed(1), +a2.toFixed(1)],
+          lineStyle:{width:2,color:clr}, itemStyle:{color:clr},
+          symbol:'circle', symbolSize:10,
+          label:{show:true,position:'right',formatter:p=>p.dataIndex===1?c:'',color:clr,fontSize:10},
+          endLabel:{show:true,formatter:'{a}',color:clr,fontSize:10},
+        };
+      }),
+    };
+  }
+
+  // ── KPI CARDS ──
+  else if (type === 'kpi_cards') {
+    const numCols = m.y.slice(0, 6);
+    // Use custom graphic elements instead of standard chart
+    const cardW = 100/(Math.min(numCols.length, 3));
+    const graphics = [];
+    numCols.forEach((col, i) => {
+      const vals = getClean(col);
+      const avg = vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : 0;
+      const max = vals.length ? Math.max(...vals) : 0;
+      const min = vals.length ? Math.min(...vals) : 0;
+      const row = Math.floor(i/3), colIdx = i%3;
+      const cx = (colIdx+0.5)*100/Math.min(numCols.length,3);
+      const cy = numCols.length>3 ? (row===0?30:70) : 50;
+      graphics.push(
+        {type:'text', left:cx+'%', top:(cy-12)+'%', style:{text:col,fill:'#8b8d9e',fontSize:11,fontWeight:500,textAlign:'center',fontFamily:"'Noto Sans KR'"}},
+        {type:'text', left:cx+'%', top:cy+'%', style:{text:fmtNum(avg),fill:'#e8e9f0',fontSize:24,fontWeight:700,textAlign:'center',fontFamily:"'JetBrains Mono',monospace"}},
+        {type:'text', left:cx+'%', top:(cy+10)+'%', style:{text:`↓${fmtNum(min)}  ↑${fmtNum(max)}`,fill:'#5a5c6e',fontSize:9,textAlign:'center',fontFamily:"'JetBrains Mono'"}}
+      );
+    });
+    option = { graphic: graphics };
+  }
+
   if (option) {
     option.animationDuration = 800;
     option.animationEasing = 'cubicOut';
