@@ -1,0 +1,2855 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ChartForge v3</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts-wordcloud@2.1.0/dist/echarts-wordcloud.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0b0f;--surface:#12131a;--surface2:#1a1b24;--surface3:#22232e;
+  --border:#2a2b38;--border-hover:#3a3b4a;
+  --text:#e8e9f0;--text-dim:#8b8d9e;--text-muted:#5a5c6e;
+  --accent:#4f7df9;--accent-glow:#4f7df940;--accent-dim:#3a5ec0;
+  --green:#34d399;--amber:#fbbf24;--rose:#f87171;--violet:#a78bfa;
+  --cyan:#22d3ee;--orange:#fb923c;
+  --radius:12px;--radius-lg:20px;
+}
+html{font-size:15px;scroll-behavior:smooth}
+body{
+  font-family:'Noto Sans KR',system-ui,sans-serif;
+  background:var(--bg);color:var(--text);
+  min-height:100vh;overflow-x:hidden;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 50% -20%, #4f7df912 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, #a78bfa08 0%, transparent 50%);
+}
+
+/* ── Header ── */
+header{
+  padding:2rem 2rem 1rem;max-width:1400px;margin:0 auto;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.logo{display:flex;align-items:center;gap:.75rem}
+.logo-icon{
+  width:40px;height:40px;border-radius:10px;
+  background:linear-gradient(135deg,var(--accent),var(--violet));
+  display:grid;place-items:center;font-size:1.2rem;
+  box-shadow:0 4px 20px var(--accent-glow);
+}
+.logo h1{
+  font-family:'Playfair Display',serif;font-weight:900;font-size:1.5rem;
+  background:linear-gradient(135deg,var(--text),var(--text-dim));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.badge-group{display:flex;gap:.5rem;align-items:center}
+.badge{
+  padding:.35rem .75rem;border-radius:99px;font-size:.7rem;font-weight:600;
+  letter-spacing:.05em;
+}
+.badge.ai{background:var(--accent-glow);color:var(--accent)}
+.badge.echarts{background:#e4393520;color:#e43935}
+
+/* ── Upload Zone ── */
+.upload-section{max-width:1400px;margin:1.5rem auto;padding:0 2rem}
+.upload-zone{
+  border:2px dashed var(--border);border-radius:var(--radius-lg);
+  padding:3.5rem 2rem;text-align:center;cursor:pointer;
+  transition:all .3s ease;position:relative;overflow:hidden;
+  background:var(--surface);
+}
+.upload-zone::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(circle at 50% 50%,var(--accent-glow),transparent 70%);
+  opacity:0;transition:opacity .3s;
+}
+.upload-zone:hover,.upload-zone.dragover{
+  border-color:var(--accent);transform:translateY(-2px);
+  box-shadow:0 8px 40px var(--accent-glow);
+}
+.upload-zone:hover::before,.upload-zone.dragover::before{opacity:1}
+.upload-zone *{position:relative;z-index:1}
+.upload-icon{font-size:3rem;margin-bottom:1rem;display:block}
+.upload-title{font-size:1.2rem;font-weight:600;margin-bottom:.5rem}
+.upload-sub{color:var(--text-dim);font-size:.85rem}
+.upload-formats{
+  margin-top:1rem;display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap;
+}
+.format-tag{
+  padding:.25rem .6rem;border-radius:6px;font-size:.7rem;font-weight:500;
+  background:var(--surface3);color:var(--text-dim);
+  font-family:'JetBrains Mono',monospace;
+}
+input[type=file]{display:none}
+
+/* ── Loading / Progress Panel ── */
+.loading-overlay{
+  display:none;position:fixed;inset:0;z-index:9999;
+  background:rgba(10,11,15,.92);
+  place-items:center;backdrop-filter:blur(8px);
+}
+.loading-overlay.active{display:grid}
+.loader{text-align:center;max-width:420px;width:90%}
+.spinner{
+  width:48px;height:48px;border:3px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;
+  animation:spin .8s linear infinite;margin:0 auto 1rem;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader p{color:var(--text-dim);font-size:.9rem}
+.progress-steps{margin-top:1.2rem;text-align:left}
+.p-step{
+  display:flex;align-items:center;gap:.65rem;padding:.4rem 0;
+  font-size:.8rem;color:var(--text-muted);transition:all .2s;
+}
+.p-step.active{color:var(--accent);font-weight:600}
+.p-step.done{color:var(--green)}
+.p-step .p-icon{width:18px;text-align:center;font-size:.85rem}
+.p-step .p-label{flex:1}
+.p-step .p-time{font-family:'JetBrains Mono',monospace;font-size:.65rem;min-width:42px;text-align:right;color:var(--text-muted)}
+.p-step.active .p-icon{animation:pulse 1s ease infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.p-bar{margin-top:1rem;height:4px;border-radius:2px;background:var(--surface3);overflow:hidden}
+.p-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--violet));border-radius:2px;transition:width .3s;width:0%}
+
+/* ── Results Layout ── */
+.results{display:none;max-width:1400px;margin:0 auto;padding:0 2rem 4rem}
+.results.active{display:block}
+.section-title{
+  font-size:1.3rem;font-weight:700;margin:2.5rem 0 1rem;
+  display:flex;align-items:center;gap:.6rem;
+}
+.section-title span{font-size:1.1rem}
+
+/* ── File Summary ── */
+.file-summary{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:1rem;margin-bottom:.5rem;
+}
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:1.2rem;
+}
+.stat-card .label{font-size:.75rem;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:.06em}
+.stat-card .value{font-size:1.6rem;font-weight:700;margin-top:.3rem;font-family:'JetBrains Mono',monospace}
+.stat-card .value.accent{color:var(--accent)}
+.stat-card .value.green{color:var(--green)}
+.stat-card .value.amber{color:var(--amber)}
+
+/* ── Column Cards ── */
+.columns-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;
+}
+.col-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:1.2rem;transition:all .2s;
+}
+.col-card:hover{border-color:var(--border-hover);transform:translateY(-1px)}
+.col-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem}
+.col-name{font-weight:600;font-size:.95rem;font-family:'JetBrains Mono',monospace}
+/* Column toggle */
+.col-toggle{
+  width:36px;height:20px;border-radius:10px;border:none;cursor:pointer;
+  background:var(--green);position:relative;transition:background .2s;flex-shrink:0;
+}
+.col-toggle::after{
+  content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;
+  border-radius:50%;background:#fff;transition:transform .2s;
+}
+.col-toggle.off{background:var(--surface3)}
+.col-toggle.off::after{transform:translateX(16px);background:var(--text-muted)}
+.col-card.disabled{opacity:.4;filter:grayscale(.6)}
+.col-card.disabled .col-color-row,.col-card.disabled .val-colors-section,.col-card.disabled .col-samples{display:none}
+.col-color-row{display:flex;align-items:center;gap:.5rem;margin-bottom:.7rem}
+.col-color-swatch{
+  width:28px;height:28px;border-radius:8px;border:2px solid var(--border);
+  cursor:pointer;transition:all .15s;position:relative;flex-shrink:0;
+}
+.col-color-swatch:hover{transform:scale(1.12);border-color:var(--border-hover);box-shadow:0 2px 12px rgba(0,0,0,.4)}
+.col-color-swatch input[type=color]{
+  position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;
+}
+.col-color-label{font-size:.72rem;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase}
+.col-type{
+  padding:.2rem .55rem;border-radius:6px;font-size:.65rem;font-weight:600;
+  text-transform:uppercase;letter-spacing:.04em;
+}
+.col-type.numeric{background:#34d39920;color:var(--green)}
+.col-type.temporal{background:#4f7df920;color:var(--accent)}
+.col-type.categorical,.col-type.low_cardinality{background:#fbbf2420;color:var(--amber)}
+.col-type.binary{background:#a78bfa20;color:var(--violet)}
+.col-type.high_cardinality{background:#f8717120;color:var(--rose)}
+.col-type.empty{background:var(--surface3);color:var(--text-muted)}
+.col-meta{font-size:.78rem;color:var(--text-dim);line-height:1.6}
+.col-meta strong{color:var(--text);font-weight:500}
+.col-samples{margin-top:.6rem;display:flex;gap:.35rem;flex-wrap:wrap}
+.sample-chip{
+  padding:.15rem .45rem;border-radius:4px;font-size:.68rem;
+  background:var(--surface3);color:var(--text-dim);
+  font-family:'JetBrains Mono',monospace;max-width:120px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.val-colors-section{margin-top:.7rem;border-top:1px solid var(--border);padding-top:.6rem}
+.val-colors-title{font-size:.68rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem}
+.val-colors-grid{display:flex;flex-wrap:wrap;gap:.4rem}
+.val-color-chip{
+  display:flex;align-items:center;gap:.3rem;
+  padding:.2rem .45rem .2rem .2rem;border-radius:6px;
+  background:var(--surface2);border:1px solid var(--border);
+  cursor:default;transition:all .15s;font-size:.7rem;
+}
+.val-color-chip:hover{border-color:var(--border-hover);background:var(--surface3)}
+.val-color-dot{
+  width:16px;height:16px;border-radius:5px;flex-shrink:0;
+  border:1.5px solid var(--border);cursor:pointer;position:relative;
+  transition:transform .12s;
+}
+.val-color-dot:hover{transform:scale(1.2);border-color:var(--text-muted)}
+.val-color-dot input[type=color]{
+  position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;
+}
+.val-color-name{color:var(--text-dim);font-family:'JetBrains Mono',monospace;white-space:nowrap;max-width:80px;overflow:hidden;text-overflow:ellipsis}
+
+/* ── Recommendations ── */
+.recs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:1.25rem}
+.rec-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);overflow:hidden;transition:all .25s;position:relative;
+}
+.rec-card:hover{border-color:var(--accent);box-shadow:0 4px 24px var(--accent-glow)}
+.rec-card.full-width{grid-column:1 / -1}
+.rec-card.col-hidden{display:none}
+.rec-card-head{
+  padding:1rem 1.2rem;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);
+  transition:border-radius .25s;
+}
+.rec-card.collapsed .rec-card-head{border-bottom-color:transparent;border-radius:var(--radius-lg)}
+.rec-info{display:flex;align-items:center;gap:.6rem;flex:1;min-width:0;cursor:pointer;user-select:none;padding:.15rem 0;border-radius:6px;transition:background .12s}
+.rec-info:hover{background:var(--surface2)}
+.rec-icon{font-size:1.3rem}
+.rec-title{font-weight:700;font-size:.95rem}
+.rec-subtitle{font-size:.7rem;color:var(--text-dim);margin-top:.1rem}
+.rec-actions{display:flex;align-items:center;gap:.4rem;flex-shrink:0}
+.rec-score{
+  font-family:'JetBrains Mono',monospace;font-weight:700;font-size:.8rem;
+  padding:.25rem .6rem;border-radius:8px;
+}
+.rec-score.high{background:#34d39920;color:var(--green)}
+.rec-score.mid{background:#4f7df920;color:var(--accent)}
+.rec-score.low{background:#fbbf2420;color:var(--amber)}
+/* Collapse button */
+.collapse-btn{
+  width:28px;height:28px;border-radius:6px;border:none;cursor:pointer;
+  background:transparent;color:var(--text-dim);font-size:.85rem;
+  display:grid;place-items:center;transition:all .15s;
+}
+.collapse-btn:hover{background:var(--surface3);color:var(--text)}
+.rec-card.collapsed .collapse-btn{transform:rotate(-90deg)}
+/* Menu button + dropdown */
+.menu-btn{
+  width:28px;height:28px;border-radius:6px;border:none;cursor:pointer;
+  background:transparent;color:var(--text-dim);font-size:1.1rem;
+  display:grid;place-items:center;transition:all .15s;letter-spacing:-1px;
+}
+.menu-btn:hover{background:var(--surface3);color:var(--text)}
+.menu-wrap{position:relative}
+.menu-dropdown{
+  display:none;position:fixed;z-index:9000;
+  min-width:200px;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius);box-shadow:0 8px 32px rgba(0,0,0,.5);
+  padding:.35rem 0;
+}
+#active-menu{
+  display:block;position:fixed;z-index:9000;
+  min-width:200px;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius);box-shadow:0 12px 40px rgba(0,0,0,.6);
+  padding:.35rem 0;
+}
+.menu-dropdown.open{display:block}
+.menu-item{
+  display:flex;align-items:center;gap:.6rem;padding:.55rem 1rem;
+  font-size:.8rem;color:var(--text-dim);cursor:pointer;transition:all .1s;
+  border:none;background:none;width:100%;text-align:left;font-family:inherit;
+}
+.menu-item:hover{background:var(--surface3);color:var(--text)}
+.menu-item .mi-icon{font-size:.95rem;width:1.2rem;text-align:center}
+/* Body + collapse */
+.rec-body{padding:1rem 1.2rem;overflow:hidden;transition:max-height .35s ease,opacity .25s ease,padding .3s ease;max-height:800px;opacity:1}
+.rec-card.collapsed .rec-body{max-height:0;opacity:0;padding-top:0;padding-bottom:0}
+.rec-reason{font-size:.8rem;color:var(--text-dim);margin-bottom:.8rem;line-height:1.5}
+.rec-mapping{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.8rem}
+.mapping-tag{
+  display:flex;align-items:center;gap:.3rem;
+  padding:.2rem .5rem;border-radius:6px;font-size:.68rem;
+  background:var(--surface3);
+}
+.mapping-tag .axis{color:var(--text-muted);font-weight:600;font-size:.58rem;text-transform:uppercase}
+.mapping-tag .field{color:var(--text);font-family:'JetBrains Mono',monospace;font-weight:500}
+.chart-container{
+  width:100%;height:300px;background:var(--surface2);
+  border-radius:var(--radius);position:relative;overflow:hidden;
+}
+/* Overlay sits above ECharts canvas, transparent to clicks by default */
+.chart-overlay{
+  position:absolute;inset:0;z-index:10;pointer-events:none;
+  border-radius:var(--radius);
+}
+.chart-overlay.draw-mode{pointer-events:auto;cursor:crosshair}
+/* All child elements receive events */
+.chart-overlay > *{pointer-events:auto}
+
+/* Toolbar floating inside chart — hidden until hover */
+.chart-toolbar{
+  position:absolute;top:6px;right:6px;z-index:20;
+  display:flex;gap:3px;background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:3px;opacity:0;transition:opacity .25s;pointer-events:none;
+}
+.chart-container:hover .chart-toolbar{opacity:1;pointer-events:auto}
+.tb-btn{
+  width:26px;height:26px;border:none;border-radius:5px;cursor:pointer;
+  background:transparent;color:var(--text-dim);font-size:.8rem;
+  display:grid;place-items:center;transition:all .12s;
+}
+.tb-btn:hover{background:var(--surface3);color:var(--text)}
+.tb-btn.active{background:var(--accent-glow);color:var(--accent)}
+.tb-btn[title]:hover::after{content:attr(title);position:absolute;top:100%;right:0;margin-top:4px;
+  background:var(--surface2);border:1px solid var(--border);color:var(--text-dim);
+  font-size:.65rem;padding:.2rem .5rem;border-radius:4px;white-space:nowrap;pointer-events:none;z-index:99}
+
+/* Annotations (memos) */
+.chart-anno{
+  position:absolute;z-index:15;max-width:220px;
+  background:none;
+  border:none;color:var(--text);
+  font-size:.72rem;font-weight:500;
+  padding:.3rem .4rem .3rem .45rem;border-radius:6px;
+  display:flex;align-items:center;gap:.25rem;line-height:1.3;
+  font-family:'Noto Sans KR',system-ui,sans-serif;
+  transition:box-shadow .15s;user-select:none;
+}
+.chart-anno:hover{box-shadow:0 2px 12px rgba(251,191,36,0.25)}
+.chart-anno.dragging{opacity:.8;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.chart-anno .a-text{flex:1;word-break:break-word}
+/* Grip handle (shared style) — hidden until parent hover */
+.ov-grip{
+  width:16px;height:16px;border-radius:3px;flex-shrink:0;
+  display:grid;place-items:center;cursor:grab;
+  color:var(--text-muted);font-size:.7rem;opacity:0;transition:all .15s;
+}
+.chart-anno:hover .ov-grip,
+.chart-hline:hover .ov-grip,
+.chart-vline:hover .ov-grip,
+.chart-rect:hover .ov-grip{opacity:.6}
+.ov-grip:hover{opacity:1!important;background:rgba(255,255,255,.08)}
+.dragging .ov-grip{cursor:grabbing;opacity:.8!important}
+/* Close button (shared style) — hidden until parent hover */
+.ov-close{
+  width:16px;height:16px;border-radius:3px;flex-shrink:0;
+  display:grid;place-items:center;cursor:pointer;
+  color:var(--text-muted);font-size:.7rem;opacity:0;transition:all .15s;
+}
+.chart-anno:hover .ov-close,
+.chart-hline:hover .ov-close,
+.chart-vline:hover .ov-close,
+.chart-rect:hover .ov-close{opacity:.5}
+.ov-close:hover{opacity:1!important;background:var(--rose);color:#fff}
+
+/* Dashed lines */
+.chart-hline,.chart-vline{position:absolute;z-index:14}
+.chart-hline{
+  left:0;right:0;height:0;border-top:0.5px dashed var(--rose);
+  padding:5px 0;margin-top:-5px;
+}
+.chart-vline{
+  top:0;bottom:0;width:0;border-left:0.5px dashed var(--rose);
+  padding:0 5px;margin-left:-5px;
+}
+/* Line controls group — hidden until hover */
+.line-controls{
+  position:absolute;display:flex;gap:2px;
+  background:var(--surface);border:1px solid var(--border);border-radius:5px;
+  padding:1px;opacity:0;transition:opacity .15s;
+}
+.chart-hline:hover .line-controls,
+.chart-vline:hover .line-controls{opacity:1}
+.chart-hline .line-controls{right:4px;top:-11px}
+.chart-vline .line-controls{top:4px;left:-11px;flex-direction:column}
+
+/* Dashed rectangle */
+.chart-rect{
+  position:absolute;z-index:13;
+  border:0.5px dashed var(--rose);border-radius:4px;
+  background:rgba(248,113,113,0.04);
+  min-width:30px;min-height:20px;
+}
+.rect-controls{
+  position:absolute;top:-10px;right:-10px;display:flex;gap:2px;
+  background:var(--surface);border:1px solid var(--border);border-radius:5px;
+  padding:1px;opacity:0;transition:opacity .15s;
+}
+.chart-rect:hover .rect-controls{opacity:1}
+.chart-rect .rect-resize{
+  position:absolute;bottom:-4px;right:-4px;width:10px;height:10px;
+  background:var(--rose);border-radius:2px;cursor:nwse-resize;
+  opacity:0;transition:opacity .15s;
+}
+.chart-rect:hover .rect-resize{opacity:1}
+
+/* Annotation input */
+.anno-input{
+  position:absolute;z-index:60;
+  background:var(--surface);border:2px solid var(--amber);color:var(--text);
+  font-size:.8rem;padding:.4rem .6rem;border-radius:8px;
+  width:180px;outline:none;font-family:inherit;
+  box-shadow:0 4px 16px rgba(0,0,0,.5);pointer-events:auto;
+}
+
+/* ── Data Preview Table ── */
+.table-wrap{
+  overflow:auto;border-radius:var(--radius);border:1px solid var(--border);max-height:420px;
+}
+.table-wrap table{width:100%;border-collapse:collapse;font-size:.8rem}
+.table-wrap th{
+  position:sticky;top:0;z-index:2;
+  background:var(--surface2);color:var(--text-dim);font-weight:600;
+  padding:.7rem 1rem;text-align:left;white-space:nowrap;
+  border-bottom:2px solid var(--border);
+  font-family:'JetBrains Mono',monospace;font-size:.72rem;
+  text-transform:uppercase;letter-spacing:.04em;
+}
+.table-wrap td{
+  padding:.55rem 1rem;border-bottom:1px solid var(--border);
+  white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;
+}
+.table-wrap tr:hover td{background:var(--surface2)}
+.table-wrap td.null{color:var(--text-muted);font-style:italic}
+
+/* ── Responsive ── */
+@media(max-width:768px){
+  header,.upload-section,.results{padding-left:1rem;padding-right:1rem}
+  .recs-grid{grid-template-columns:1fr}
+  .file-summary{grid-template-columns:repeat(2,1fr)}
+}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.animate-in{animation:fadeUp .5s ease forwards;opacity:0}
+.delay-1{animation-delay:.1s}.delay-2{animation-delay:.2s}.delay-3{animation-delay:.3s}
+
+/* ── Overlay Properties Panel ── */
+.ov-props{
+  position:absolute;z-index:60;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:.7rem;min-width:170px;box-shadow:0 8px 32px rgba(0,0,0,.5);
+  font-size:.75rem;color:var(--text-dim);pointer-events:auto;
+}
+.props-title{font-weight:700;font-size:.8rem;color:var(--text);margin-bottom:.5rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)}
+.ov-props label{display:flex;align-items:center;gap:.4rem;margin-bottom:.4rem}
+.ov-props label span{font-size:.65rem;color:var(--text-muted);min-width:28px;text-align:right;font-family:'JetBrains Mono',monospace}
+.ov-props input[type=range]{flex:1;height:4px;accent-color:var(--accent)}
+.ov-props input[type=color]{width:24px;height:20px;border:1px solid var(--border);border-radius:4px;padding:0;cursor:pointer;background:transparent}
+.props-btn{
+  display:block;width:100%;padding:.35rem;margin-top:.3rem;border:none;border-radius:6px;
+  background:var(--surface3);color:var(--text-dim);font-size:.72rem;cursor:pointer;
+  font-family:inherit;transition:all .1s;text-align:center;
+}
+.props-btn:hover{background:var(--surface2);color:var(--text)}
+.props-btn.close{margin-top:.5rem;color:var(--text-muted)}
+.props-row{display:flex;gap:.3rem;margin-top:.3rem}
+.props-row .props-btn{flex:1}
+</style></head><body>
+
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">📊</div>
+    <h1>ChartForge</h1>
+  </div>
+  <div class="badge-group">
+    <div class="badge echarts">APACHE ECHARTS</div>
+    <div class="badge ai">AI-POWERED</div>
+  </div>
+</header>
+
+<section class="upload-section">
+  <div class="upload-zone" id="dropZone">
+    <span class="upload-icon">⬆️</span>
+    <div class="upload-title">엑셀 또는 CSV 파일을 드래그하세요</div>
+    <div class="upload-sub">클릭하여 파일을 선택할 수도 있습니다</div>
+    <div class="upload-formats">
+      <span class="format-tag">.xlsx</span>
+      <span class="format-tag">.xls</span>
+      <span class="format-tag">.csv</span>
+      <span class="format-tag">.tsv</span>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.tsv">
+  </div>
+</section>
+
+<div class="loading-overlay" id="loading">
+  <div class="loader">
+    <div class="spinner"></div>
+    <p id="loadingMsg">준비 중...</p>
+    <div class="progress-steps" id="progressSteps"></div>
+    <div class="p-bar"><div class="p-bar-fill" id="progressBar"></div></div>
+  </div>
+</div>
+
+<section class="results" id="results">
+  <div class="section-title animate-in"><span>📋</span> 파일 요약</div>
+  <div class="file-summary" id="fileSummary"></div>
+  <div class="section-title animate-in delay-1"><span>🔬</span> 컬럼 분석</div>
+  <div class="columns-grid" id="columnsGrid"></div>
+  <div class="section-title animate-in delay-2"><span>✨</span> 추천 차트</div>
+  <div class="recs-grid" id="recsGrid"></div>
+  <div class="section-title animate-in delay-3"><span>📄</span> 데이터 미리보기</div>
+  <div class="table-wrap" id="tableWrap"></div>
+</section>
+
+
+<script>
+// ═══ config.js ═══
+// ChartForge — config.js
+// API endpoint, ECharts theme, palette, global utilities
+
+const API_BASE = "";  // Same origin — run.py serves both
+
+// ─────────────────────────────────────────────────────
+// Apache ECharts — Dark Theme & Palette
+// ─────────────────────────────────────────────────────
+const PALETTE = ['#4f7df9','#34d399','#fbbf24','#f87171','#a78bfa','#22d3ee','#fb923c','#ec4899','#6ee7b7','#93c5fd'];
+
+const ECHARTS_THEME = {
+  backgroundColor: 'transparent',
+  textStyle: { color: '#8b8d9e', fontFamily: "'Noto Sans KR', system-ui" },
+  title: { textStyle: { color: '#8b8d9e', fontSize: 12, fontWeight: 500 } },
+  legend: {
+    textStyle: { color: '#8b8d9e', fontSize: 11 },
+    pageTextStyle: { color: '#8b8d9e' },
+    icon: 'roundRect',
+    itemWidth: 12, itemHeight: 8,
+  },
+  tooltip: {
+    backgroundColor: '#1a1b24ee',
+    borderColor: '#2a2b38',
+    textStyle: { color: '#e8e9f0', fontSize: 12 },
+    borderWidth: 1,
+  },
+  categoryAxis: {
+    axisLine: { lineStyle: { color: '#2a2b3860' } },
+    axisTick: { lineStyle: { color: '#2a2b3860' } },
+    axisLabel: { color: '#8b8d9e', fontSize: 10 },
+    splitLine: { lineStyle: { color: '#2a2b3830' } },
+  },
+  valueAxis: {
+    axisLine: { show: false },
+    axisTick: { show: false },
+    axisLabel: { color: '#8b8d9e', fontSize: 10 },
+    splitLine: { lineStyle: { color: '#2a2b3825', type: 'dashed' } },
+  },
+};
+
+echarts.registerTheme('chartforge', ECHARTS_THEME);
+
+// Track ECharts instances for cleanup
+const chartInstances = [];
+
+function fmtNum(v) {
+  if (v==null) return '-';
+  const n = Number(v);
+  if (isNaN(n)) return String(v);
+  if (Math.abs(n)>=1e6) return (n/1e6).toFixed(1)+'M';
+  if (Math.abs(n)>=1e3) return (n/1e3).toFixed(1)+'K';
+  return Number.isInteger(n) ? String(n) : n.toFixed(2);
+}
+
+// ═══ colors.js ═══
+// ChartForge — colors.js
+// Column & value color management
+
+// ─────────────────────────────────────────────────────
+// Column Color System
+// ─────────────────────────────────────────────────────
+const columnColors = {};   // colName → hex color
+const valueColors  = {};   // "colName::value" → hex color
+const disabledColumns = new Set(); // columns excluded from charts
+let currentData = null;    // latest analysis result
+
+// Column-level color
+function C(colName) {
+  return columnColors[colName] || PALETTE[0];
+}
+
+// Value-level color: VC("카테고리", "전자제품") → color
+function VC(colName, value) {
+  const key = colName + '::' + String(value);
+  return valueColors[key] || Pi(0);
+}
+
+// Get ordered palette from all column colors
+function CP() {
+  if (!currentData) return PALETTE;
+  return currentData.column_analysis.map(c => columnColors[c.name] || PALETTE[0]);
+}
+
+// Get color at index i from dynamic palette
+function Pi(i) {
+  const p = CP();
+  return p[i % p.length];
+}
+
+// Assign default colors to columns
+function initColumnColors(cols) {
+  cols.forEach((c, i) => {
+    if (!columnColors[c.name]) {
+      columnColors[c.name] = PALETTE[i % PALETTE.length];
+    }
+  });
+}
+
+// Assign default colors to category values within each column
+function initValueColors(cols) {
+  cols.forEach(c => {
+    if (!c.top_values) return;
+    const vals = Object.keys(c.top_values);
+    vals.forEach((v, vi) => {
+      const key = c.name + '::' + v;
+      if (!valueColors[key]) {
+        valueColors[key] = PALETTE[vi % PALETTE.length];
+      }
+    });
+  });
+}
+
+// Re-render all charts with current colors
+function reRenderCharts() {
+  if (!currentData) return;
+  chartInstances.forEach(c => c.dispose());
+  chartInstances.length = 0;
+  // Only re-render the ECharts, not the DOM cards
+  currentData.recommendations.forEach((rec, i) => {
+    try { buildEChart(`echart-${i}`, rec, currentData.preview); } catch(e) {}
+  });
+}
+
+// ═══ overlay.js ═══
+// ChartForge — overlay.js v3
+// Overlays with properties panel, memo editing, copy, rotate, save/load
+
+let _drag = null;
+
+// ── Container dblclick → memo ──
+function onContainerDblClick(e, idx) {
+  if (_drag) return;
+  const tgt = e.target;
+  // Double-click on existing memo → edit
+  const anno = tgt.closest('.chart-anno');
+  if (anno) { _editMemo(anno); return; }
+  if (tgt.closest('.chart-toolbar,.chart-hline,.chart-vline,.chart-rect,.anno-input,.ov-props')) return;
+  e.preventDefault(); e.stopPropagation();
+  const overlay = document.getElementById(`overlay-${idx}`);
+  if (!overlay) return;
+  _spawnMemoInput(overlay, e.clientX, e.clientY);
+}
+
+function startMemo(idx) {
+  const overlay = document.getElementById(`overlay-${idx}`);
+  if (!overlay) return;
+  const r = overlay.getBoundingClientRect();
+  _spawnMemoInput(overlay, r.left + r.width/2, r.top + r.height/2);
+}
+
+function _spawnMemoInput(overlay, cx, cy, existingEl, existingText) {
+  overlay.querySelectorAll('.anno-input').forEach(el => el.remove());
+  const rect = overlay.getBoundingClientRect();
+  const x = cx - rect.left, y = cy - rect.top;
+  const input = document.createElement('input');
+  input.className = 'anno-input';
+  input.style.left = x + 'px'; input.style.top = y + 'px';
+  input.style.pointerEvents = 'auto';
+  input.value = existingText || '';
+  input.placeholder = '메모 입력 후 Enter...';
+  overlay.appendChild(input);
+  setTimeout(() => { input.focus(); input.select(); }, 30);
+  const commit = () => {
+    const t = input.value.trim();
+    if (existingEl) {
+      if (t) { existingEl.querySelector('.a-text').textContent = t; existingEl.style.display = ''; }
+      else existingEl.remove();
+    } else if (t) addAnno(overlay, x, y, t);
+    if (input.parentElement) input.remove();
+  };
+  input.onkeydown = (ev) => { if (ev.key==='Enter'){ev.preventDefault();commit()} else if(ev.key==='Escape'){if(existingEl)existingEl.style.display='';input.remove()} };
+  input.onblur = () => setTimeout(commit, 80);
+}
+
+function _editMemo(anno) {
+  const text = anno.querySelector('.a-text')?.textContent || '';
+  const overlay = anno.parentElement;
+  const r = anno.getBoundingClientRect();
+  const or = overlay.getBoundingClientRect();
+  anno.style.display = 'none';
+  _spawnMemoInput(overlay, r.left, r.top, anno, text);
+}
+
+// ── Memo ──
+function addAnno(overlay, x, y, text, props) {
+  const el = document.createElement('div');
+  el.className = 'chart-anno'; el.dataset.type = 'anno';
+  el.style.left = Math.max(0,x-8)+'px'; el.style.top = Math.max(0,y-28)+'px';
+  if (props?.color) el.style.color = props.color;
+  if (props?.fontSize) el.style.fontSize = props.fontSize + 'px';
+  el.innerHTML = `<span class="ov-grip" title="드래그">⠿</span><span class="a-text">${text}</span><span class="ov-close" title="삭제">✕</span>`;
+  overlay.appendChild(el);
+  el.querySelector('.ov-close').onmousedown = (e) => { e.stopPropagation(); el.remove(); };
+  _bindDrag(el, overlay, 'anno', '.ov-grip');
+  // Right-click → properties
+  el.oncontextmenu = (e) => { e.preventDefault(); _showProps(el, overlay, 'anno'); };
+}
+
+// ── Lines ──
+function addHLine(idx, posY, props) {
+  const overlay = document.getElementById(`overlay-${idx}`);
+  if (!overlay) return;
+  const el = document.createElement('div');
+  el.className = 'chart-hline'; el.dataset.type = 'hline';
+  const n = overlay.querySelectorAll('.chart-hline').length;
+  el.style.top = (posY!=null ? posY : Math.round(overlay.offsetHeight*(0.3+n*0.1)))+'px';
+  _applyLineProps(el, props);
+  el.innerHTML = `<div class="line-controls"><span class="ov-grip" title="드래그">⠿</span><span class="ov-close" title="삭제">✕</span></div>`;
+  overlay.appendChild(el);
+  el.querySelector('.ov-close').onmousedown = (e) => { e.stopPropagation(); el.remove(); };
+  _bindDrag(el, overlay, 'hline', '.ov-grip');
+  el.oncontextmenu = (e) => { e.preventDefault(); _showProps(el, overlay, 'hline'); };
+}
+
+function addVLine(idx, posX, props) {
+  const overlay = document.getElementById(`overlay-${idx}`);
+  if (!overlay) return;
+  const el = document.createElement('div');
+  el.className = 'chart-vline'; el.dataset.type = 'vline';
+  const n = overlay.querySelectorAll('.chart-vline').length;
+  el.style.left = (posX!=null ? posX : Math.round(overlay.offsetWidth*(0.3+n*0.1)))+'px';
+  _applyLineProps(el, props, true);
+  el.innerHTML = `<div class="line-controls"><span class="ov-grip" title="드래그">⠿</span><span class="ov-close" title="삭제">✕</span></div>`;
+  overlay.appendChild(el);
+  el.querySelector('.ov-close').onmousedown = (e) => { e.stopPropagation(); el.remove(); };
+  _bindDrag(el, overlay, 'vline', '.ov-grip');
+  el.oncontextmenu = (e) => { e.preventDefault(); _showProps(el, overlay, 'vline'); };
+}
+
+function _applyLineProps(el, props, isVertical) {
+  const w = props?.lineWidth || 0.5;
+  const c = props?.lineColor || 'var(--rose)';
+  if (isVertical) el.style.borderLeft = `${w}px dashed ${c}`;
+  else el.style.borderTop = `${w}px dashed ${c}`;
+}
+
+// ── Rectangle ──
+function addRect(idx, posX, posY, rw, rh, props) {
+  const overlay = document.getElementById(`overlay-${idx}`);
+  if (!overlay) return;
+  const w = overlay.offsetWidth, h = overlay.offsetHeight;
+  const el = document.createElement('div');
+  el.className = 'chart-rect'; el.dataset.type = 'rect';
+  const n = overlay.querySelectorAll('.chart-rect').length;
+  el.style.left = (posX!=null?posX:Math.round(w*0.2+n*20))+'px';
+  el.style.top = (posY!=null?posY:Math.round(h*0.2+n*20))+'px';
+  el.style.width = (rw!=null?rw:Math.round(w*0.4))+'px';
+  el.style.height = (rh!=null?rh:Math.round(h*0.4))+'px';
+  _applyRectProps(el, props);
+  el.innerHTML = `<div class="rect-controls"><span class="ov-grip" title="드래그">⠿</span><span class="ov-close" title="삭제">✕</span></div><span class="rect-resize"></span>`;
+  overlay.appendChild(el);
+  el.querySelector('.ov-close').onmousedown = (e) => { e.stopPropagation(); el.remove(); };
+  _bindDrag(el, overlay, 'rect', '.ov-grip');
+  el.querySelector('.rect-resize').onmousedown = (e) => {
+    e.stopPropagation(); e.preventDefault();
+    _drag = { type:'resize', el, startW:el.offsetWidth, startH:el.offsetHeight, startX:e.clientX, startY:e.clientY };
+  };
+  el.oncontextmenu = (e) => { e.preventDefault(); _showProps(el, overlay, 'rect'); };
+}
+
+function _applyRectProps(el, props) {
+  const w = props?.lineWidth || 0.5;
+  const c = props?.lineColor || 'var(--rose)';
+  const fill = props?.fillColor || 'transparent';
+  const opacity = props?.fillOpacity ?? 0.04;
+  const rot = props?.rotate || 0;
+  el.style.border = `${w}px dashed ${c}`;
+  el.style.background = fill === 'transparent' ? `rgba(248,113,113,${opacity})` : _hex2rgba(fill, opacity);
+  if (rot) el.style.transform = `rotate(${rot}deg)`;
+}
+
+function _hex2rgba(hex, a) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// ═══ Properties Panel (right-click) ═══
+function _showProps(el, overlay, kind) {
+  document.querySelectorAll('.ov-props').forEach(p => p.remove());
+  const panel = document.createElement('div');
+  panel.className = 'ov-props';
+  panel.style.pointerEvents = 'auto';
+
+  const elRect = el.getBoundingClientRect();
+  const ovRect = overlay.getBoundingClientRect();
+  panel.style.left = Math.min(elRect.left - ovRect.left + 20, ovRect.width - 180) + 'px';
+  panel.style.top = Math.min(elRect.bottom - ovRect.top + 4, ovRect.height - 200) + 'px';
+
+  let html = '<div class="props-title">속성</div>';
+
+  if (kind === 'hline' || kind === 'vline') {
+    const curW = parseFloat(el.style.borderTopWidth || el.style.borderLeftWidth) || 0.5;
+    html += `<label>선 굵기 <input type="range" min="0.5" max="5" step="0.5" value="${curW}" onchange="this.parentElement.querySelector('span').textContent=this.value+'px'" oninput="_setProp(this,'lineWidth')"> <span>${curW}px</span></label>`;
+    html += `<label>선 색상 <input type="color" value="#f87171" onchange="_setProp(this,'lineColor')"></label>`;
+  }
+
+  if (kind === 'rect') {
+    const curW = parseFloat(el.style.borderWidth) || 0.5;
+    html += `<label>선 굵기 <input type="range" min="0.5" max="5" step="0.5" value="${curW}" onchange="this.parentElement.querySelector('span').textContent=this.value+'px'" oninput="_setProp(this,'lineWidth')"> <span>${curW}px</span></label>`;
+    html += `<label>선 색상 <input type="color" value="#f87171" onchange="_setProp(this,'lineColor')"></label>`;
+    html += `<label>채우기 <input type="color" value="#f87171" onchange="_setProp(this,'fillColor')"></label>`;
+    html += `<label>투명도 <input type="range" min="0" max="1" step="0.05" value="0.04" oninput="_setProp(this,'fillOpacity')"></label>`;
+    html += `<button class="props-btn" onclick="_setProp(this,'clearFill')">채우기 제거</button>`;
+    html += `<div class="props-row"><button class="props-btn" onclick="_setProp(this,'rotateL')">↺ 좌회전</button><button class="props-btn" onclick="_setProp(this,'rotateR')">↻ 우회전</button></div>`;
+  }
+
+  if (kind === 'anno') {
+    html += `<label>글자 색상 <input type="color" value="#e8e9f0" onchange="_setProp(this,'textColor')"></label>`;
+  }
+
+  html += `<button class="props-btn" onclick="_setProp(this,'copy')">📋 복사</button>`;
+  html += `<button class="props-btn close" onclick="this.closest('.ov-props').remove()">닫기</button>`;
+
+  panel.innerHTML = html;
+  panel.dataset.targetType = kind;
+  panel._target = el;
+  overlay.appendChild(panel);
+
+  // Close on outside click
+  setTimeout(() => {
+    const close = (ev) => {
+      if (!panel.contains(ev.target)) { panel.remove(); document.removeEventListener('mousedown', close, true); }
+    };
+    document.addEventListener('mousedown', close, true);
+  }, 50);
+}
+
+function _setProp(input, prop) {
+  const panel = input.closest('.ov-props');
+  const el = panel._target;
+  const overlay = panel.parentElement;
+  const kind = panel.dataset.targetType;
+
+  if (prop === 'lineWidth') {
+    const v = input.value + 'px dashed ' + (el.style.borderTopColor || el.style.borderLeftColor || el.style.borderColor || '#f87171');
+    if (kind==='hline') el.style.borderTop = v;
+    else if (kind==='vline') el.style.borderLeft = v;
+    else el.style.border = v;
+  } else if (prop === 'lineColor') {
+    const w = parseFloat(el.style.borderTopWidth||el.style.borderLeftWidth||el.style.borderWidth)||0.5;
+    const v = `${w}px dashed ${input.value}`;
+    if (kind==='hline') el.style.borderTop = v;
+    else if (kind==='vline') el.style.borderLeft = v;
+    else el.style.border = v;
+  } else if (prop === 'fillColor') {
+    const opacity = panel.querySelector('input[type=range][oninput*=fillOpacity]')?.value || 0.1;
+    el.style.background = _hex2rgba(input.value, opacity);
+  } else if (prop === 'fillOpacity') {
+    const colorInput = panel.querySelector('input[type=color][onchange*=fillColor]');
+    const c = colorInput?.value || '#f87171';
+    el.style.background = _hex2rgba(c, input.value);
+  } else if (prop === 'clearFill') {
+    el.style.background = 'transparent';
+  } else if (prop === 'textColor') {
+    el.style.color = input.value;
+  } else if (prop === 'rotateL') {
+    const cur = parseFloat(el.style.transform?.match(/rotate\((-?\d+)/)?.[1]) || 0;
+    el.style.transform = `rotate(${cur - 15}deg)`;
+  } else if (prop === 'rotateR') {
+    const cur = parseFloat(el.style.transform?.match(/rotate\((-?\d+)/)?.[1]) || 0;
+    el.style.transform = `rotate(${cur + 15}deg)`;
+  } else if (prop === 'copy') {
+    const clone = el.cloneNode(true);
+    clone.style.left = (parseFloat(el.style.left)||0) + 15 + 'px';
+    clone.style.top = (parseFloat(el.style.top)||0) + 15 + 'px';
+    overlay.appendChild(clone);
+    // Re-bind events
+    const idx = parseInt(overlay.id.replace('overlay-',''));
+    clone.querySelector('.ov-close').onmousedown = (e) => { e.stopPropagation(); clone.remove(); };
+    _bindDrag(clone, overlay, kind, '.ov-grip');
+    if (kind==='rect') {
+      const rh = clone.querySelector('.rect-resize');
+      if (rh) rh.onmousedown = (e) => {
+        e.stopPropagation(); e.preventDefault();
+        _drag = { type:'resize', el:clone, startW:clone.offsetWidth, startH:clone.offsetHeight, startX:e.clientX, startY:e.clientY };
+      };
+    }
+    clone.oncontextmenu = (e) => { e.preventDefault(); _showProps(clone, overlay, kind); };
+    panel.remove();
+    showToast('복사되었습니다');
+  }
+}
+
+// ── Drag engine ──
+function _bindDrag(el, overlay, kind, gripSelector) {
+  const grip = el.querySelector(gripSelector);
+  if (!grip) return;
+  grip.onmousedown = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    _drag = { type:kind, el, overlay, oRect:overlay.getBoundingClientRect(),
+      startX:e.clientX, startY:e.clientY, origLeft:parseFloat(el.style.left)||0, origTop:parseFloat(el.style.top)||0 };
+    el.classList.add('dragging');
+  };
+}
+
+document.addEventListener('mousemove', (e) => {
+  if (!_drag) return;
+  e.preventDefault();
+  if (_drag.type==='resize') {
+    _drag.el.style.width = Math.max(30, _drag.startW+e.clientX-_drag.startX)+'px';
+    _drag.el.style.height = Math.max(20, _drag.startH+e.clientY-_drag.startY)+'px';
+    return;
+  }
+  const {el,oRect,startX,startY,origLeft,origTop,type}=_drag;
+  const dx=e.clientX-startX, dy=e.clientY-startY;
+  if (type==='hline') el.style.top = Math.max(0,Math.min(origTop+dy,oRect.height-2))+'px';
+  else if (type==='vline') el.style.left = Math.max(0,Math.min(origLeft+dx,oRect.width-2))+'px';
+  else { el.style.left=Math.max(0,Math.min(origLeft+dx,oRect.width-30))+'px'; el.style.top=Math.max(0,Math.min(origTop+dy,oRect.height-20))+'px'; }
+});
+document.addEventListener('mouseup', () => { if(_drag&&_drag.el)_drag.el.classList.remove('dragging'); _drag=null; });
+
+// ═══ Save/Load (per chart) ═══
+function exportOverlaysJSON(idx) {
+  closeAllMenus();
+  const ov = document.getElementById(`overlay-${idx}`);
+  if (!ov) return;
+  const items = [];
+  ov.querySelectorAll('[data-type]').forEach(el => {
+    const o = {type:el.dataset.type, left:parseFloat(el.style.left)||0, top:parseFloat(el.style.top)||0};
+    if (o.type==='anno') { o.text=el.querySelector('.a-text')?.textContent||''; o.color=el.style.color||''; }
+    if (o.type==='rect') { o.width=parseFloat(el.style.width)||100; o.height=parseFloat(el.style.height)||60; o.bg=el.style.background||''; o.border=el.style.border||''; o.transform=el.style.transform||''; }
+    if (o.type==='hline') o.borderTop=el.style.borderTop||'';
+    if (o.type==='vline') o.borderLeft=el.style.borderLeft||'';
+    items.push(o);
+  });
+  if (!items.length) { showToast('저장할 오버레이가 없습니다'); return; }
+  const card = document.querySelector(`.rec-card[data-idx="${idx}"]`);
+  const title = card?.querySelector('.rec-title')?.textContent||'chart';
+  const blob = new Blob([JSON.stringify(items,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`overlay_${title}_${idx}.json`; a.click();
+  showToast(`오버레이 ${items.length}개 저장됨`);
+}
+
+function importOverlaysJSON(idx) {
+  closeAllMenus();
+  const ov = document.getElementById(`overlay-${idx}`);
+  if (!ov) return;
+  const n = ov.querySelectorAll('[data-type]').length;
+  if (n>0 && !confirm(`오버레이 ${n}개가 있습니다. 삭제하고 로드하시겠습니까?`)) return;
+  ov.querySelectorAll('[data-type]').forEach(el=>el.remove());
+  const input=document.createElement('input'); input.type='file'; input.accept='.json'; input.style.display='none';
+  document.body.appendChild(input);
+  input.onchange=()=>{
+    const file=input.files[0]; document.body.removeChild(input); if(!file)return;
+    const r=new FileReader();
+    r.onload=(evt)=>{
+      try {
+        const items=JSON.parse(evt.target.result); if(!Array.isArray(items))throw 0;
+        items.forEach(it=>{
+          if(it.type==='anno') { addAnno(ov,it.left+8,it.top+28,it.text,{color:it.color}); }
+          else if(it.type==='hline') { addHLine(idx,it.top); const last=ov.querySelector('.chart-hline:last-child'); if(last&&it.borderTop) last.style.borderTop=it.borderTop; }
+          else if(it.type==='vline') { addVLine(idx,it.left); const last=ov.querySelector('.chart-vline:last-child'); if(last&&it.borderLeft) last.style.borderLeft=it.borderLeft; }
+          else if(it.type==='rect') { addRect(idx,it.left,it.top,it.width,it.height); const last=ov.querySelector('.chart-rect:last-child'); if(last){if(it.bg)last.style.background=it.bg; if(it.border)last.style.border=it.border; if(it.transform)last.style.transform=it.transform;} }
+        });
+        showToast(`오버레이 ${items.length}개 로드됨`);
+      } catch(e){ showToast('파일을 읽을 수 없습니다'); }
+    };
+    r.readAsText(file);
+  };
+  setTimeout(()=>input.click(),50);
+}
+
+function clearOverlays(idx) {
+  const ov=document.getElementById(`overlay-${idx}`);
+  if(!ov)return;
+  const n=ov.querySelectorAll('[data-type]').length;
+  if(!n){showToast('제거할 오버레이가 없습니다');return;}
+  if(!confirm(`오버레이 ${n}개를 모두 제거하시겠습니까?`))return;
+  ov.querySelectorAll('[data-type]').forEach(el=>el.remove());
+  showToast(`${n}개 제거됨`);
+}
+
+function toggleOverlayVisibility(idx, btn) {
+  const ov=document.getElementById(`overlay-${idx}`);
+  if(!ov)return;
+  const hidden=ov.style.display==='none';
+  ov.style.display=hidden?'':'none';
+  btn.textContent=hidden?'👁':'🚫';
+}
+
+// ═══ charts.js ═══
+// ChartForge — charts.js
+// ECharts renderers for 31 chart types
+
+function buildEChart(domId, rec, preview) {
+  const dom = document.getElementById(domId);
+  if (!dom) return;
+  const chart = echarts.init(dom, 'chartforge');
+  chartInstances.push(chart);
+
+  const m = rec.mapping;
+  const rows = preview.data;
+  const type = rec.chart_type;
+
+  const getCol   = (name) => rows.map(r => r[name]);
+  const getNum   = (name) => rows.map(r => r[name] != null ? Number(r[name]) : null);
+  const getClean = (name) => getNum(name).filter(v => v !== null && !isNaN(v));
+  const limit    = (arr, n=60) => arr.slice(0, n);
+  const agg      = (catCol, numCol, labels) => labels.map(l => {
+    const vals = rows.filter(r => String(r[catCol]) === String(l)).map(r => Number(r[numCol])).filter(v => !isNaN(v));
+    return vals.length ? +(vals.reduce((s,v)=>s+v,0)/vals.length).toFixed(2) : 0;
+  });
+
+  let option = null;
+
+  // ── LINE ──
+  if (type === 'line') {
+    const xData = limit(getCol(m.x));
+    option = {
+      tooltip: { trigger: 'axis' },
+      legend: { show: m.y.length > 1, bottom: 0 },
+      grid: { top: 20, right: 20, bottom: m.y.length > 1 ? 40 : 20, left: 50, containLabel: true },
+      xAxis: { type: 'category', data: xData, axisLabel: { rotate: xData.length > 15 ? 30 : 0 } },
+      yAxis: { type: 'value' },
+      series: m.y.map((col, i) => ({
+        name: col, type: 'line', data: limit(getNum(col)),
+        smooth: true, symbol: xData.length > 30 ? 'none' : 'circle', symbolSize: 5,
+        lineStyle: { width: 2.5, color: C(col) },
+        itemStyle: { color: C(col) },
+        areaStyle: null,
+      })),
+    };
+  }
+
+  // ── AREA ──
+  else if (type === 'area') {
+    const xData = limit(getCol(m.x));
+    option = {
+      tooltip: { trigger: 'axis' },
+      legend: { show: true, bottom: 0 },
+      grid: { top: 20, right: 20, bottom: 40, left: 50, containLabel: true },
+      xAxis: { type: 'category', data: xData },
+      yAxis: { type: 'value' },
+      series: m.y.map((col, i) => ({
+        name: col, type: 'line', data: limit(getNum(col)),
+        smooth: true, symbol: 'none',
+        lineStyle: { width: 2, color: C(col) },
+        itemStyle: { color: C(col) },
+        areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: C(col) + '50' },
+          { offset: 1, color: C(col) + '05' },
+        ]) },
+        stack: 'total',
+      })),
+    };
+  }
+
+  // ── BAR / HORIZONTAL BAR ──
+  else if (type === 'bar' || type === 'horizontal_bar') {
+    const isHoriz = type === 'horizontal_bar';
+    const labels = limit([...new Set(getCol(m.x))], 20);
+    const data = agg(m.x, m.y[0], labels);
+    const catAxis = { type: 'category', data: labels, axisLabel: { fontSize: 10 } };
+    const valAxis = { type: 'value' };
+    option = {
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+      grid: { top: 15, right: 20, bottom: 20, left: isHoriz ? 80 : 50, containLabel: true },
+      xAxis: isHoriz ? valAxis : catAxis,
+      yAxis: isHoriz ? catAxis : valAxis,
+      series: [{
+        type: 'bar', data: data.map((v, i) => ({
+          value: v,
+          itemStyle: { color: new echarts.graphic.LinearGradient(isHoriz ? 0 : 0, isHoriz ? 0 : 1, isHoriz ? 1 : 0, isHoriz ? 0 : 0, [
+            { offset: 0, color: VC(m.x, labels[i]) + 'cc' },
+            { offset: 1, color: VC(m.x, labels[i]) },
+          ]) },
+        })),
+        barMaxWidth: 40,
+        itemStyle: { borderRadius: isHoriz ? [0, 6, 6, 0] : [6, 6, 0, 0] },
+      }],
+    };
+  }
+
+  // ── STACKED BAR ──
+  else if (type === 'stacked_bar') {
+    const labels = limit([...new Set(getCol(m.x))], 15);
+    const groups = [...new Set(getCol(m.group))].slice(0, 8);
+    option = {
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+      legend: { show: true, bottom: 0 },
+      grid: { top: 15, right: 20, bottom: 40, left: 50, containLabel: true },
+      xAxis: { type: 'category', data: labels },
+      yAxis: { type: 'value' },
+      series: groups.map((g, i) => ({
+        name: g, type: 'bar', stack: 'total',
+        data: labels.map(l => {
+          const vals = rows.filter(r => String(r[m.x])===String(l) && String(r[m.group])===String(g)).map(r=>Number(r[m.y[0]])).filter(v=>!isNaN(v));
+          return vals.length ? +(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2) : 0;
+        }),
+        itemStyle: { color: VC(m.group, g), borderRadius: i === groups.length-1 ? [4,4,0,0] : 0 },
+        barMaxWidth: 40,
+      })),
+    };
+  }
+
+  // ── PIE ──
+  else if (type === 'pie') {
+    const labels = [...new Set(getCol(m.x))].slice(0, 7);
+    const data = agg(m.x, m.y[0], labels);
+    option = {
+      tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+      legend: { orient: 'vertical', right: 10, top: 'center', textStyle: { fontSize: 11 } },
+      series: [{
+        type: 'pie', radius: ['0%', '70%'], center: ['40%', '50%'],
+        data: labels.map((l, i) => ({ value: data[i], name: l, itemStyle: { color: VC(m.x, l) } })),
+        label: { show: true, color: '#8b8d9e', fontSize: 10, formatter: '{b}\n{d}%' },
+        emphasis: { itemStyle: { shadowBlur: 20, shadowColor: 'rgba(0,0,0,0.3)' } },
+        itemStyle: { borderColor: '#12131a', borderWidth: 2, borderRadius: 6 },
+      }],
+    };
+  }
+
+  // ── DOUGHNUT ──
+  else if (type === 'doughnut') {
+    const labels = [...new Set(getCol(m.x))].slice(0, 7);
+    const data = agg(m.x, m.y[0], labels);
+    const total = data.reduce((s,v) => s+v, 0);
+    option = {
+      tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+      legend: { orient: 'vertical', right: 10, top: 'center', textStyle: { fontSize: 11 } },
+      graphic: {
+        type: 'text', left: '33%', top: '45%',
+        style: { text: fmtNum(total), fill: '#e8e9f0', fontSize: 22, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", textAlign: 'center' },
+      },
+      series: [{
+        type: 'pie', radius: ['48%', '72%'], center: ['40%', '50%'],
+        data: labels.map((l, i) => ({ value: data[i], name: l, itemStyle: { color: VC(m.x, l) } })),
+        label: { show: false },
+        emphasis: { label: { show: true, fontSize: 13, fontWeight: 'bold' }, itemStyle: { shadowBlur: 20 } },
+        itemStyle: { borderColor: '#12131a', borderWidth: 3, borderRadius: 8 },
+      }],
+    };
+  }
+
+  // ── SCATTER ──
+  else if (type === 'scatter') {
+    const xVals = getClean(m.x);
+    const yVals = getClean(m.y[0]);
+    const pts = limit(xVals.map((x, i) => yVals[i] != null ? [x, yVals[i]] : null).filter(Boolean), 300);
+    option = {
+      tooltip: { formatter: p => `${m.x}: ${p.value[0]}<br>${m.y[0]}: ${p.value[1]}` },
+      grid: { top: 20, right: 30, bottom: 40, left: 55, containLabel: true },
+      xAxis: { type: 'value', name: m.x, nameLocation: 'center', nameGap: 28, nameTextStyle: { color: '#8b8d9e', fontSize: 11 } },
+      yAxis: { type: 'value', name: m.y[0], nameLocation: 'center', nameGap: 42, nameTextStyle: { color: '#8b8d9e', fontSize: 11 } },
+      series: [{
+        type: 'scatter', data: pts, symbolSize: 8,
+        itemStyle: { color: C(m.y[0]), opacity: 0.7, borderColor: C(m.y[0]), borderWidth: 1 },
+        emphasis: { itemStyle: { opacity: 1, shadowBlur: 10, shadowColor: C(m.y[0]) + '80' } },
+      }],
+    };
+  }
+
+  // ── BUBBLE ──
+  else if (type === 'bubble') {
+    const xVals = getClean(m.x);
+    const yVals = getClean(m.y[0]);
+    const sCol = m.group;
+    const sVals = sCol ? getClean(sCol) : xVals.map(() => 10);
+    const maxS = Math.max(...sVals, 1);
+    const pts = limit(xVals.map((x, i) => {
+      if (yVals[i] == null) return null;
+      return [x, yVals[i], sVals[i] || 1];
+    }).filter(Boolean), 200);
+    option = {
+      tooltip: { formatter: p => `${m.x}: ${p.value[0]}<br>${m.y[0]}: ${p.value[1]}${sCol ? '<br>'+sCol+': '+p.value[2] : ''}` },
+      grid: { top: 20, right: 30, bottom: 40, left: 55, containLabel: true },
+      xAxis: { type: 'value', name: m.x, nameLocation: 'center', nameGap: 28 },
+      yAxis: { type: 'value', name: m.y[0], nameLocation: 'center', nameGap: 42 },
+      series: [{
+        type: 'scatter', data: pts,
+        symbolSize: (val) => Math.max(6, (val[2] / maxS) * 50),
+        itemStyle: { color: new echarts.graphic.RadialGradient(0.4, 0.3, 1, [
+          { offset: 0, color: C(m.y[0]) + 'dd' },
+          { offset: 1, color: C(m.y[0]) + '40' },
+        ]), opacity: 0.85 },
+      }],
+    };
+  }
+
+  // ── HISTOGRAM ──
+  else if (type === 'histogram') {
+    const vals = getClean(m.x);
+    if (!vals.length) return;
+    const bins = 25, min = Math.min(...vals), max = Math.max(...vals);
+    const step = (max - min) / bins || 1;
+    const counts = Array(bins).fill(0);
+    vals.forEach(v => { counts[Math.min(Math.floor((v - min) / step), bins - 1)]++; });
+    const labels = counts.map((_, i) => fmtNum(min + step * (i + 0.5)));
+    option = {
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+      grid: { top: 15, right: 20, bottom: 25, left: 45, containLabel: true },
+      xAxis: { type: 'category', data: labels, axisLabel: { rotate: 30, fontSize: 9 } },
+      yAxis: { type: 'value', name: '빈도' },
+      series: [{
+        type: 'bar', data: counts,
+        itemStyle: {
+          color: new echarts.graphic.LinearGradient(0, 1, 0, 0, [
+            { offset: 0, color: C(m.x) + '40' },
+            { offset: 1, color: C(m.x) },
+          ]),
+          borderRadius: [3, 3, 0, 0],
+        },
+        barCategoryGap: '2%',
+      }],
+    };
+  }
+
+  // ── BOX PLOT (native) ──
+  else if (type === 'box') {
+    const cats = [...new Set(getCol(m.x))].slice(0, 10);
+    const boxData = cats.map(c => {
+      const vals = rows.filter(r => String(r[m.x]) === String(c)).map(r => Number(r[m.y[0]])).filter(v => !isNaN(v)).sort((a,b) => a-b);
+      if (!vals.length) return [0,0,0,0,0];
+      const q = (p) => { const i = p*(vals.length-1); const f = Math.floor(i); return f===i ? vals[f] : vals[f]+(vals[f+1]-vals[f])*(i-f); };
+      return [vals[0], q(0.25), q(0.5), q(0.75), vals[vals.length-1]];
+    });
+    option = {
+      tooltip: { trigger: 'item', formatter: p => {
+        const d = p.data;
+        return `${p.name}<br>최솟값: ${d[1]}<br>Q1: ${d[2]}<br>중앙값: ${d[3]}<br>Q3: ${d[4]}<br>최댓값: ${d[5]}`;
+      }},
+      grid: { top: 20, right: 20, bottom: 25, left: 50, containLabel: true },
+      xAxis: { type: 'category', data: cats },
+      yAxis: { type: 'value', name: m.y[0] },
+      series: [{
+        type: 'boxplot',
+        data: boxData.map((bd, i) => ({
+          value: bd,
+          itemStyle: { color: VC(m.x, cats[i]) + '30', borderColor: VC(m.x, cats[i]), borderWidth: 2 },
+        })),
+        emphasis: { itemStyle: { borderWidth: 2.5 } },
+      }],
+    };
+  }
+
+  // ── RADAR ──
+  else if (type === 'radar') {
+    const labelCol = m.x;
+    const axes = m.y.slice(0, 8);
+    const entities = [...new Set(getCol(labelCol))].slice(0, 5);
+    const axisRanges = {};
+    axes.forEach(a => { const v = getClean(a); axisRanges[a] = { min: Math.min(...v), max: Math.max(...v) }; });
+    option = {
+      tooltip: {},
+      legend: { show: true, bottom: 0, textStyle: { fontSize: 10 } },
+      radar: {
+        indicator: axes.map(a => ({ name: a, max: 100 })),
+        shape: 'polygon',
+        splitArea: { areaStyle: { color: ['#1a1b2440', '#22232e40'] } },
+        axisLine: { lineStyle: { color: '#2a2b3850' } },
+        splitLine: { lineStyle: { color: '#2a2b3840' } },
+        axisName: { color: '#8b8d9e', fontSize: 10 },
+      },
+      series: [{
+        type: 'radar',
+        data: entities.map((ent, i) => {
+          const entRows = rows.filter(r => String(r[labelCol]) === String(ent));
+          const values = axes.map(a => {
+            const vals = entRows.map(r => Number(r[a])).filter(v => !isNaN(v));
+            const avg = vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : 0;
+            const range = axisRanges[a].max - axisRanges[a].min || 1;
+            return Math.round((avg - axisRanges[a].min) / range * 100);
+          });
+          return {
+            name: String(ent), value: values,
+            lineStyle: { color: VC(labelCol, ent), width: 2 },
+            areaStyle: { color: VC(labelCol, ent) + '25' },
+            itemStyle: { color: VC(labelCol, ent) },
+          };
+        }),
+      }],
+    };
+  }
+
+  // ── HEATMAP (native) ──
+  else if (type === 'heatmap') {
+    const numCols = preview.columns.filter(c => {
+      const v = rows.slice(0, 10).map(r => Number(r[c]));
+      return v.some(v2 => !isNaN(v2));
+    }).slice(0, 8);
+
+    const data = [];
+    let minVal = 1, maxVal = -1;
+    numCols.forEach((c1, i) => {
+      numCols.forEach((c2, j) => {
+        const v1 = rows.map(r => Number(r[c1])).filter(v => !isNaN(v));
+        const v2 = rows.map(r => Number(r[c2])).filter(v => !isNaN(v));
+        const len = Math.min(v1.length, v2.length);
+        const corr = len > 2 ? pearson(v1.slice(0,len), v2.slice(0,len)) : 0;
+        data.push([i, j, +corr.toFixed(2)]);
+        if (corr < minVal) minVal = corr;
+        if (corr > maxVal) maxVal = corr;
+      });
+    });
+    option = {
+      tooltip: { formatter: p => `${numCols[p.value[0]]} × ${numCols[p.value[1]]}<br>상관계수: ${p.value[2]}` },
+      grid: { top: 10, right: 80, bottom: 50, left: 80, containLabel: true },
+      xAxis: { type: 'category', data: numCols, axisLabel: { rotate: 30, fontSize: 9 }, splitArea: { show: true, areaStyle: { color: ['#1a1b2420','#12131a20'] } } },
+      yAxis: { type: 'category', data: numCols, axisLabel: { fontSize: 9 }, splitArea: { show: true, areaStyle: { color: ['#1a1b2420','#12131a20'] } } },
+      visualMap: {
+        min: -1, max: 1, calculable: true,
+        orient: 'vertical', right: 0, top: 'center',
+        textStyle: { color: '#8b8d9e', fontSize: 10 },
+        inRange: { color: ['#f87171', '#2a2b38', '#4f7df9'] },
+        itemHeight: 160,
+      },
+      series: [{
+        type: 'heatmap', data: data,
+        label: { show: true, color: '#e8e9f0', fontSize: 10, formatter: p => p.value[2].toFixed(2) },
+        emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)' } },
+      }],
+    };
+  }
+
+  // ── SANKEY ──
+  else if (type === 'sankey' && rec.sankey_data) {
+    const sd = rec.sankey_data;
+
+    // Calculate threshold: top 30% of link values show labels
+    const linkValues = sd.links.map(l => l.value).sort((a, b) => b - a);
+    const thresholdIdx = Math.max(1, Math.floor(linkValues.length * 0.3));
+    const labelThreshold = linkValues[Math.min(thresholdIdx, linkValues.length - 1)] || 0;
+
+    option = {
+      tooltip: {
+        trigger: 'item',
+        formatter: p => {
+          if (p.dataType === 'edge') {
+            const s = p.data.source.split(':').slice(1).join(':');
+            const t = p.data.target.split(':').slice(1).join(':');
+            return `${s} → ${t}<br>값: ${fmtNum(p.data.value)}`;
+          }
+          return p.data.name.split(':').slice(1).join(':');
+        },
+      },
+      series: [{
+        type: 'sankey',
+        layout: 'none',
+        left: 40, right: 40, top: 15, bottom: 15,
+        nodeWidth: 18,
+        nodeGap: 10,
+        orient: 'horizontal',
+        draggable: true,
+        focusNodeAdjacency: 'allEdges',
+        data: sd.nodes.map(n => {
+          const colName = n.name.split(':')[0];
+          const val = n.name.split(':').slice(1).join(':');
+          return {
+            name: n.name,
+            itemStyle: { color: VC(colName, val), borderColor: '#12131a', borderWidth: 1 },
+            label: { show: true, color: '#e8e9f0', fontSize: 10, formatter: p => p.name.split(':').slice(1).join(':') },
+          };
+        }),
+        links: sd.links.map(l => ({
+          source: l.source,
+          target: l.target,
+          value: l.value,
+          lineStyle: {
+            color: 'gradient',
+            opacity: l.value >= labelThreshold ? 0.45 : 0.25,
+          },
+          label: {
+            show: l.value >= labelThreshold,
+            position: 'middle',
+            formatter: () => fmtNum(l.value),
+            fontSize: 10,
+            fontFamily: "'JetBrains Mono', monospace",
+            fontWeight: 600,
+            color: '#e8e9f0',
+            textBorderColor: '#0a0b0f',
+            textBorderWidth: 2.5,
+            padding: [2, 6],
+            backgroundColor: '#12131acc',
+            borderRadius: 4,
+          },
+        })),
+        emphasis: {
+          lineStyle: { opacity: 0.7 },
+        },
+        lineStyle: { curveness: 0.5 },
+        label: { position: 'right' },
+      }],
+    };
+  }
+
+  // ── NIGHTINGALE ROSE ──
+  else if (type === 'nightingale') {
+    const labels = [...new Set(getCol(m.x))].slice(0, 8);
+    const data = agg(m.x, m.y[0], labels);
+    option = {
+      tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+      legend: { show: false },
+      series: [{
+        type: 'pie', roseType: 'area',
+        radius: ['18%', '72%'], center: ['50%', '52%'],
+        data: labels.map((l, i) => ({ value: data[i], name: l, itemStyle: { color: VC(m.x, l) } })),
+        label: { color: '#8b8d9e', fontSize: 10, formatter: '{b}\n{d}%' },
+        itemStyle: { borderColor: '#12131a', borderWidth: 2, borderRadius: 6 },
+        emphasis: { itemStyle: { shadowBlur: 15, shadowColor: 'rgba(0,0,0,0.4)' } },
+      }],
+    };
+  }
+
+  // ── FUNNEL ──
+  else if (type === 'funnel') {
+    const labels = [...new Set(getCol(m.x))].slice(0, 8);
+    const data = agg(m.x, m.y[0], labels);
+    // Sort descending for funnel effect
+    const paired = labels.map((l, i) => ({ name: l, value: data[i] })).sort((a, b) => b.value - a.value);
+    option = {
+      tooltip: { trigger: 'item', formatter: '{b}: {c}' },
+      series: [{
+        type: 'funnel',
+        left: 60, right: 60, top: 15, bottom: 15,
+        width: '70%',
+        minSize: '8%', maxSize: '100%',
+        sort: 'descending', gap: 4,
+        label: { show: true, position: 'inside', color: '#fff', fontSize: 11, fontWeight: 600,
+                 formatter: p => `${p.name}\n${fmtNum(p.value)}` },
+        data: paired.map((d, i) => ({
+          ...d,
+          itemStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+              { offset: 0, color: VC(m.x, d.name) + 'cc' },
+              { offset: 1, color: VC(m.x, d.name) },
+            ]),
+            borderColor: '#12131a', borderWidth: 1,
+          },
+        })),
+        emphasis: { label: { fontSize: 13 } },
+      }],
+    };
+  }
+
+  // ── POLAR BAR ──
+  else if (type === 'polar_bar') {
+    const labels = [...new Set(getCol(m.x))].slice(0, 10);
+    const data = agg(m.x, m.y[0], labels);
+    option = {
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+      angleAxis: { type: 'category', data: labels, axisLabel: { color: '#8b8d9e', fontSize: 9 },
+                   axisLine: { lineStyle: { color: '#2a2b3850' } } },
+      radiusAxis: { axisLine: { show: false }, axisTick: { show: false },
+                    axisLabel: { color: '#8b8d9e', fontSize: 9 },
+                    splitLine: { lineStyle: { color: '#2a2b3830' } } },
+      polar: { radius: ['12%', '78%'] },
+      series: [{
+        type: 'bar', coordinateSystem: 'polar',
+        data: data.map((v, i) => ({
+          value: v,
+          itemStyle: { color: VC(m.x, labels[i]) },
+        })),
+        itemStyle: { borderRadius: 4 },
+        emphasis: { itemStyle: { shadowBlur: 10 } },
+      }],
+    };
+  }
+
+  // ── PARALLEL COORDINATES ──
+  else if (type === 'parallel') {
+    const axes = m.y.slice(0, 8);
+    const groupCol = m.group || null;
+    const groups = groupCol ? [...new Set(getCol(groupCol))].slice(0, 6) : [null];
+
+    const parallelAxis = axes.map((a, i) => ({
+      dim: i, name: a,
+      nameTextStyle: { color: '#8b8d9e', fontSize: 9 },
+      axisLine: { lineStyle: { color: '#2a2b3860' } },
+      axisLabel: { color: '#5a5c6e', fontSize: 8 },
+    }));
+
+    const series = groups.map((g, gi) => {
+      const filteredRows = g !== null ? rows.filter(r => String(r[groupCol]) === String(g)) : rows;
+      const lineData = filteredRows.slice(0, 80).map(r => axes.map(a => {
+        const v = Number(r[a]);
+        return isNaN(v) ? null : v;
+      })).filter(d => d.every(v => v !== null));
+      return {
+        type: 'parallel', name: g || 'all',
+        data: lineData,
+        lineStyle: { width: 1.2, opacity: 0.4, color: Pi(gi) },
+        emphasis: { lineStyle: { width: 2.5, opacity: 0.9 } },
+      };
+    });
+
+    option = {
+      tooltip: {},
+      legend: groupCol ? { show: true, bottom: 0, textStyle: { fontSize: 10 } } : { show: false },
+      parallelAxis: parallelAxis,
+      parallel: { left: 50, right: 30, top: 25, bottom: groupCol ? 40 : 20 },
+      series: series,
+    };
+  }
+
+  // ── TREEMAP ──
+  else if (type === 'treemap' && rec.tree_data) {
+    option = {
+      tooltip: { formatter: p => `${p.name}<br>값: ${fmtNum(p.value)}` },
+      series: [{
+        type: 'treemap',
+        width: '92%', height: '88%', left: 'center', top: 10,
+        roam: false,
+        data: rec.tree_data.map((node, i) => ({
+          ...node,
+          itemStyle: { borderColor: '#12131a', borderWidth: 2, gapWidth: 2, color: Pi(i) },
+          label: { show: true, color: '#fff', fontSize: 12, fontWeight: 600 },
+          children: (node.children || []).map((child, j) => ({
+            ...child,
+            itemStyle: { color: Pi(i) + ['ff','cc','aa','88','66'][j % 5] },
+            label: { show: true, color: '#fff', fontSize: 10 },
+          })),
+        })),
+        breadcrumb: {
+          show: true, bottom: 2, left: 'center',
+          itemStyle: { color: '#22232e', borderColor: '#2a2b38', textStyle: { color: '#8b8d9e' } },
+        },
+        levels: [
+          { itemStyle: { borderColor: '#12131a', borderWidth: 3, gapWidth: 3 },
+            upperLabel: { show: true, color: '#e8e9f0', fontSize: 11, fontWeight: 700, height: 24, backgroundColor: '#00000040', padding: [2, 6] } },
+          { itemStyle: { borderColor: '#12131a80', borderWidth: 1, gapWidth: 1 },
+            label: { show: true, color: '#e8e9f0', fontSize: 10 } },
+        ],
+      }],
+    };
+  }
+
+  // ── SUNBURST ──
+  else if (type === 'sunburst' && rec.tree_data) {
+    option = {
+      tooltip: { formatter: p => `${p.name}<br>값: ${fmtNum(p.value)}` },
+      series: [{
+        type: 'sunburst',
+        data: rec.tree_data.map((node, i) => ({
+          ...node,
+          itemStyle: { color: Pi(i) },
+          children: (node.children || []).map((child, j) => ({
+            ...child,
+            itemStyle: { color: Pi(i) + ['dd','bb','99','77'][j % 4] },
+          })),
+        })),
+        radius: ['12%', '88%'],
+        label: { color: '#e8e9f0', fontSize: 10, minAngle: 8 },
+        itemStyle: { borderColor: '#12131a', borderWidth: 2, borderRadius: 4 },
+        emphasis: { itemStyle: { shadowBlur: 15, shadowColor: 'rgba(0,0,0,0.3)' } },
+        levels: [
+          {},
+          { r0: '12%', r: '52%', label: { fontSize: 11, fontWeight: 600 } },
+          { r0: '52%', r: '88%', label: { fontSize: 9, align: 'right' } },
+        ],
+      }],
+    };
+  }
+
+  // ── THEME RIVER ──
+  else if (type === 'themeriver') {
+    const timeCol = m.x, valCol = m.y[0], groupCol = m.group;
+    const groups = [...new Set(getCol(groupCol))].slice(0, 8);
+    const times = [...new Set(getCol(timeCol))].slice(0, 60);
+    // Build [[time, value, group], ...]
+    const riverData = [];
+    times.forEach(t => {
+      groups.forEach(g => {
+        const vals = rows.filter(r => String(r[timeCol]) === String(t) && String(r[groupCol]) === String(g))
+                        .map(r => Number(r[valCol])).filter(v => !isNaN(v));
+        const total = vals.length ? vals.reduce((s, v) => s + v, 0) : 0;
+        riverData.push([String(t), Math.round(total * 100) / 100, String(g)]);
+      });
+    });
+    option = {
+      tooltip: { trigger: 'axis' },
+      legend: { show: true, bottom: 0, textStyle: { fontSize: 10 } },
+      singleAxis: {
+        type: 'category', bottom: 40, top: 20,
+        axisLabel: { color: '#8b8d9e', fontSize: 9, rotate: times.length > 20 ? 30 : 0 },
+        axisLine: { lineStyle: { color: '#2a2b3850' } },
+      },
+      series: [{
+        type: 'themeRiver',
+        data: riverData,
+        label: { show: false },
+        emphasis: { itemStyle: { shadowBlur: 15, shadowColor: 'rgba(0,0,0,0.3)' } },
+        itemStyle: { borderColor: '#12131a', borderWidth: 1 },
+        color: CP().slice(0, groups.length),
+      }],
+    };
+  }
+
+  // ── WATERFALL ──
+  else if (type === 'waterfall') {
+    const labels = [...new Set(getCol(m.x))].slice(0, 12);
+    const data = agg(m.x, m.y[0], labels);
+    // Calculate waterfall: show cumulative base (transparent) + delta (colored)
+    const total = data.reduce((s, v) => s + v, 0);
+    const avg = total / data.length;
+    // Show as deviations from average
+    let cumBase = 0;
+    const bases = [], deltas = [], colors = [];
+    data.forEach((v, i) => {
+      const delta = v - avg;
+      if (delta >= 0) {
+        bases.push(Math.round(cumBase * 100) / 100);
+        deltas.push(Math.round(delta * 100) / 100);
+        colors.push(Pi(1)); // green
+      } else {
+        bases.push(Math.round((cumBase + delta) * 100) / 100);
+        deltas.push(Math.round(Math.abs(delta) * 100) / 100);
+        colors.push(Pi(3)); // red
+      }
+      cumBase += delta;
+    });
+    // Add total bar
+    labels.push('합계');
+    const finalVal = Math.round(cumBase * 100) / 100;
+    bases.push(0);
+    deltas.push(Math.abs(finalVal));
+    colors.push(finalVal >= 0 ? Pi(0) : Pi(3));
+
+    option = {
+      tooltip: {
+        formatter: p => {
+          if (p.seriesIndex === 0) return '';
+          const idx = p.dataIndex;
+          return `${labels[idx]}<br>값: ${fmtNum(data[idx] !== undefined ? data[idx] : finalVal)}`;
+        },
+      },
+      grid: { top: 20, right: 20, bottom: 30, left: 55, containLabel: true },
+      xAxis: { type: 'category', data: labels, axisLabel: { fontSize: 10, rotate: labels.length > 8 ? 25 : 0 } },
+      yAxis: { type: 'value' },
+      series: [
+        { type: 'bar', stack: 'wf', data: bases, itemStyle: { color: 'transparent' }, emphasis: { itemStyle: { color: 'transparent' } } },
+        { type: 'bar', stack: 'wf', barMaxWidth: 35,
+          data: deltas.map((d, i) => ({
+            value: d,
+            itemStyle: { color: colors[i], borderRadius: [4, 4, 0, 0] },
+          })),
+          label: { show: true, position: 'top', color: '#8b8d9e', fontSize: 9,
+                   formatter: p => fmtNum(p.value) },
+        },
+      ],
+    };
+  }
+
+  // ── GAUGE ──
+  else if (type === 'gauge') {
+    const vals = getClean(m.x);
+    if (!vals.length) return;
+    const avg = vals.reduce((s, v) => s + v, 0) / vals.length;
+    const min = Math.min(...vals), max = Math.max(...vals);
+    option = {
+      series: [{
+        type: 'gauge',
+        center: ['50%', '58%'], radius: '85%',
+        min: Math.floor(min * 0.8), max: Math.ceil(max * 1.1),
+        startAngle: 210, endAngle: -30,
+        progress: { show: true, width: 14, roundCap: true,
+                    itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                      { offset: 0, color: C(m.x) }, { offset: 1, color: Pi(4) }
+                    ]) } },
+        axisLine: { lineStyle: { width: 14, color: [[1, '#2a2b38']] } },
+        axisTick: { show: false },
+        splitLine: { length: 8, lineStyle: { width: 2, color: '#3a3b4a' } },
+        axisLabel: { distance: 22, color: '#5a5c6e', fontSize: 10 },
+        pointer: { show: true, length: '55%', width: 5,
+                   itemStyle: { color: C(m.x) },
+                   icon: 'path://M12.8,0.7l12,40.1H0.7L12.8,0.7z' },
+        anchor: { show: true, size: 12, itemStyle: { borderColor: C(m.x), borderWidth: 3, color: '#12131a' } },
+        title: { show: true, offsetCenter: [0, '72%'], color: '#8b8d9e', fontSize: 12 },
+        detail: {
+          valueAnimation: true, offsetCenter: [0, '48%'],
+          fontSize: 28, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+          color: '#e8e9f0',
+          formatter: v => fmtNum(v),
+        },
+        data: [{ value: Math.round(avg * 100) / 100, name: `${m.x} 평균` }],
+      }],
+    };
+  }
+
+  // ── STEP LINE ──
+  else if (type === 'step_line') {
+    const xData = limit(getCol(m.x));
+    option = {
+      tooltip: { trigger: 'axis' },
+      grid: { top: 20, right: 20, bottom: 25, left: 50, containLabel: true },
+      xAxis: { type: 'category', data: xData, axisLabel: { rotate: xData.length > 15 ? 30 : 0 } },
+      yAxis: { type: 'value' },
+      series: m.y.map((col, i) => ({
+        name: col, type: 'line', step: 'middle',
+        data: limit(getNum(col)),
+        lineStyle: { width: 2.5, color: C(col) },
+        itemStyle: { color: C(col) },
+        areaStyle: { color: C(col) + '15' },
+      })),
+    };
+  }
+
+  // ── GROUPED BAR ──
+  else if (type === 'grouped_bar') {
+    const labels = limit([...new Set(getCol(m.x))], 15);
+    const groups = [...new Set(getCol(m.group))].slice(0, 8);
+    option = {
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+      legend: { show: true, bottom: 0 },
+      grid: { top: 15, right: 20, bottom: 40, left: 50, containLabel: true },
+      xAxis: { type: 'category', data: labels },
+      yAxis: { type: 'value' },
+      series: groups.map((g, i) => ({
+        name: g, type: 'bar',
+        data: labels.map(l => {
+          const vals = rows.filter(r => String(r[m.x])===String(l) && String(r[m.group])===String(g)).map(r=>Number(r[m.y[0]])).filter(v=>!isNaN(v));
+          return vals.length ? +(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2) : 0;
+        }),
+        itemStyle: { color: VC(m.group, g), borderRadius: [4,4,0,0] },
+        barMaxWidth: 28,
+      })),
+    };
+  }
+
+  // ── LOLLIPOP ──
+  else if (type === 'lollipop') {
+    const labels = limit([...new Set(getCol(m.x))], 15);
+    const data = agg(m.x, m.y[0], labels);
+    option = {
+      tooltip: { trigger: 'axis' },
+      grid: { top: 15, right: 30, bottom: 25, left: 80, containLabel: true },
+      yAxis: { type: 'category', data: labels, axisLabel: { fontSize: 10 }, inverse: true },
+      xAxis: { type: 'value' },
+      series: [
+        { type: 'bar', data: data.map((v, i) => ({ value: v, itemStyle: { color: VC(m.x, labels[i]) } })),
+          barWidth: 3, barMinHeight: 2, itemStyle: { borderRadius: 2 }, z: 1 },
+        { type: 'scatter', data: data.map((v, i) => ({ value: v, itemStyle: { color: VC(m.x, labels[i]), borderColor: '#12131a', borderWidth: 2 } })),
+          symbolSize: 14, z: 2,
+          label: { show: true, position: 'right', color: '#8b8d9e', fontSize: 10, formatter: p => fmtNum(p.value) } },
+      ],
+    };
+  }
+
+  // ── SCATTER DENSITY ──
+  else if (type === 'scatter_density') {
+    const xVals = getClean(m.x), yVals = getClean(m.y[0]);
+    const pts = limit(xVals.map((x,i) => yVals[i]!=null ? [x,yVals[i]] : null).filter(Boolean), 2000);
+    // Simple density: count nearby points
+    const gridSize = 20;
+    const xMin=Math.min(...pts.map(p=>p[0])), xMax=Math.max(...pts.map(p=>p[0]));
+    const yMin=Math.min(...pts.map(p=>p[1])), yMax=Math.max(...pts.map(p=>p[1]));
+    const xStep=(xMax-xMin)/gridSize||1, yStep=(yMax-yMin)/gridSize||1;
+    const grid = {};
+    pts.forEach(([x,y]) => {
+      const gx=Math.floor((x-xMin)/xStep), gy=Math.floor((y-yMin)/yStep);
+      const k=gx+','+gy; grid[k]=(grid[k]||0)+1;
+    });
+    const maxD = Math.max(...Object.values(grid), 1);
+    const coloredPts = pts.map(([x,y]) => {
+      const gx=Math.floor((x-xMin)/xStep), gy=Math.floor((y-yMin)/yStep);
+      return [x, y, (grid[gx+','+gy]||1)/maxD];
+    });
+    option = {
+      tooltip: { formatter: p => `${m.x}: ${p.value[0]}<br>${m.y[0]}: ${p.value[1]}` },
+      grid: { top: 20, right: 30, bottom: 40, left: 55, containLabel: true },
+      xAxis: { type: 'value', name: m.x, nameLocation: 'center', nameGap: 28 },
+      yAxis: { type: 'value', name: m.y[0], nameLocation: 'center', nameGap: 42 },
+      visualMap: { show: true, min: 0, max: 1, dimension: 2, orient: 'vertical', right: 0, top: 'center',
+                   textStyle: { color: '#8b8d9e', fontSize: 9 }, text: ['밀집', '희소'],
+                   inRange: { color: [C(m.x)+'30', C(m.x)+'80', C(m.x)] }, itemHeight: 120 },
+      series: [{ type: 'scatter', data: coloredPts, symbolSize: 6, itemStyle: { opacity: 0.8 } }],
+    };
+  }
+
+  // ── VIOLIN (approximated with mirrored area) ──
+  else if (type === 'violin') {
+    const cats = [...new Set(getCol(m.x))].slice(0, 6);
+    const allVals = cats.flatMap(c => rows.filter(r=>String(r[m.x])===String(c)).map(r=>Number(r[m.y[0]])).filter(v=>!isNaN(v)));
+    const gMin = Math.min(...allVals), gMax = Math.max(...allVals);
+    const binCount = 15, binStep = (gMax - gMin) / binCount || 1;
+    const binLabels = Array.from({length: binCount}, (_, i) => fmtNum(gMin + binStep * (i + 0.5)));
+    option = {
+      tooltip: { trigger: 'axis' },
+      legend: { show: true, bottom: 0, textStyle: { fontSize: 10 } },
+      grid: { top: 15, right: 20, bottom: 40, left: 50, containLabel: true },
+      xAxis: { type: 'category', data: binLabels, axisLabel: { rotate: 30, fontSize: 8 }, name: m.y[0] },
+      yAxis: { type: 'value', name: '밀도' },
+      series: cats.map((c, ci) => {
+        const vals = rows.filter(r=>String(r[m.x])===String(c)).map(r=>Number(r[m.y[0]])).filter(v=>!isNaN(v));
+        const counts = Array(binCount).fill(0);
+        vals.forEach(v => { const idx = Math.min(Math.floor((v-gMin)/binStep), binCount-1); counts[idx]++; });
+        const maxC = Math.max(...counts, 1);
+        return {
+          name: c, type: 'line', smooth: true, symbol: 'none',
+          data: counts.map(v => +(v/maxC).toFixed(3)),
+          lineStyle: { width: 2, color: VC(m.x, c) },
+          areaStyle: { color: VC(m.x, c) + '25' },
+        };
+      }),
+    };
+  }
+
+  // ── CALENDAR HEATMAP ──
+  else if (type === 'calendar_heatmap') {
+    const timeCol = m.x, valCol = m.y[0];
+    const calData = [];
+    let minVal = Infinity, maxVal = -Infinity;
+    rows.forEach(r => {
+      const d = r[timeCol], v = Number(r[valCol]);
+      if (d && !isNaN(v)) {
+        const ds = String(d).slice(0, 10);
+        calData.push([ds, v]);
+        if (v < minVal) minVal = v;
+        if (v > maxVal) maxVal = v;
+      }
+    });
+    if (calData.length < 5) return;
+    const years = [...new Set(calData.map(d => d[0].slice(0,4)))].sort();
+    const year = years[0] || '2023';
+    option = {
+      tooltip: { formatter: p => `${p.value[0]}<br>${valCol}: ${fmtNum(p.value[1])}` },
+      visualMap: { min: minVal, max: maxVal, calculable: true, orient: 'horizontal', left: 'center', bottom: 5,
+                   textStyle: { color: '#8b8d9e', fontSize: 9 },
+                   inRange: { color: ['#12131a', C(valCol) + '60', C(valCol)] } },
+      calendar: {
+        range: year, top: 30, left: 50, right: 30, bottom: 40,
+        cellSize: ['auto', 14],
+        itemStyle: { borderWidth: 2, borderColor: '#0a0b0f' },
+        dayLabel: { color: '#5a5c6e', fontSize: 9 },
+        monthLabel: { color: '#8b8d9e', fontSize: 10 },
+        yearLabel: { show: false },
+        splitLine: { lineStyle: { color: '#2a2b3860' } },
+      },
+      series: [{ type: 'heatmap', coordinateSystem: 'calendar', data: calData,
+                 emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)' } } }],
+    };
+  }
+
+  // ── CANDLESTICK ──
+  else if (type === 'candlestick') {
+    const timeCol = m.x, valCol = m.y[0];
+    // Group by time periods and compute open/high/low/close
+    const groups = {};
+    rows.forEach(r => {
+      const t = String(r[timeCol] || '').slice(0, 7); // group by month
+      const v = Number(r[valCol]);
+      if (t && !isNaN(v)) { if (!groups[t]) groups[t] = []; groups[t].push(v); }
+    });
+    const sorted = Object.keys(groups).sort();
+    const ohlcData = sorted.map(t => {
+      const vals = groups[t].sort((a,b)=>a-b);
+      return [vals[0], vals[vals.length-1], vals[0], vals[vals.length-1]]; // open, close, low, high
+    });
+    // Better: use first as open, last as close
+    const ohlc2 = sorted.map(t => {
+      const vals = groups[t];
+      return [vals[0], vals[vals.length-1], Math.min(...vals), Math.max(...vals)];
+    });
+    option = {
+      tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+      grid: { top: 20, right: 20, bottom: 30, left: 50, containLabel: true },
+      xAxis: { type: 'category', data: sorted, axisLabel: { fontSize: 9, rotate: sorted.length > 12 ? 30 : 0 } },
+      yAxis: { type: 'value', scale: true },
+      series: [{
+        type: 'candlestick', data: ohlc2,
+        itemStyle: {
+          color: '#34d399', color0: '#f87171',
+          borderColor: '#34d399', borderColor0: '#f87171',
+        },
+      }],
+    };
+  }
+
+  // ── COMBO BAR + LINE ──
+  else if (type === 'combo_bar_line' && m.y.length >= 2) {
+    const barCol = m.y[0], lineCol = m.y[1];
+    const isCategory = !rows.some(r => !isNaN(Date.parse(r[m.x])) === false);
+    const labels = limit([...new Set(getCol(m.x))], 30);
+    const barData = agg(m.x, barCol, labels);
+    const lineData = agg(m.x, lineCol, labels);
+
+    option = {
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'cross', crossStyle: { color: '#5a5c6e' } },
+      },
+      legend: { show: true, bottom: 0, textStyle: { fontSize: 10 } },
+      grid: { top: 25, right: 55, bottom: 40, left: 55, containLabel: true },
+      xAxis: {
+        type: 'category', data: labels,
+        axisLabel: { rotate: labels.length > 12 ? 30 : 0, fontSize: 9 },
+        axisPointer: { type: 'shadow' },
+      },
+      yAxis: [
+        {
+          type: 'value', name: barCol,
+          nameTextStyle: { color: C(barCol), fontSize: 10 },
+          axisLabel: { color: '#8b8d9e', fontSize: 9 },
+          splitLine: { lineStyle: { color: '#2a2b3825', type: 'dashed' } },
+        },
+        {
+          type: 'value', name: lineCol,
+          nameTextStyle: { color: C(lineCol), fontSize: 10 },
+          axisLabel: { color: '#8b8d9e', fontSize: 9 },
+          splitLine: { show: false },
+        },
+      ],
+      series: [
+        {
+          name: barCol, type: 'bar', yAxisIndex: 0,
+          data: barData.map((v, i) => ({
+            value: v,
+            itemStyle: {
+              color: new echarts.graphic.LinearGradient(0, 1, 0, 0, [
+                { offset: 0, color: C(barCol) + '40' },
+                { offset: 1, color: C(barCol) + 'cc' },
+              ]),
+            },
+          })),
+          barMaxWidth: 32,
+          itemStyle: { borderRadius: [4, 4, 0, 0] },
+        },
+        {
+          name: lineCol, type: 'line', yAxisIndex: 1,
+          data: lineData,
+          smooth: true, symbol: labels.length > 20 ? 'none' : 'circle', symbolSize: 6,
+          lineStyle: { width: 2.5, color: C(lineCol) },
+          itemStyle: { color: C(lineCol), borderColor: '#12131a', borderWidth: 2 },
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: C(lineCol) + '25' },
+              { offset: 1, color: C(lineCol) + '03' },
+            ]),
+          },
+        },
+      ],
+    };
+  }
+
+  // ── 100% STACKED BAR ──
+  else if (type === 'percent_bar') {
+    const labels = limit([...new Set(getCol(m.x))], 20);
+    const groups = [...new Set(getCol(m.group))].slice(0, 8);
+    // Calculate totals per label
+    const totals = labels.map(l => {
+      return groups.reduce((s, g) => {
+        const vals = rows.filter(r => String(r[m.x])===String(l) && String(r[m.group])===String(g)).map(r=>Number(r[m.y[0]])).filter(v=>!isNaN(v));
+        return s + (vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0);
+      }, 0);
+    });
+    option = {
+      tooltip: { trigger:'axis', axisPointer:{type:'shadow'}, formatter: (params) => {
+        let s = params[0].name + '<br>';
+        params.forEach(p => { s += `${p.marker} ${p.seriesName}: ${p.value.toFixed(1)}%<br>`; });
+        return s;
+      }},
+      legend: { show:true, bottom:0 },
+      grid: { top:15, right:20, bottom:40, left:50, containLabel:true },
+      xAxis: { type:'category', data:labels },
+      yAxis: { type:'value', max:100, axisLabel:{formatter:'{value}%'} },
+      series: groups.map((g, i) => ({
+        name:g, type:'bar', stack:'pct',
+        data: labels.map((l, li) => {
+          const vals = rows.filter(r => String(r[m.x])===String(l) && String(r[m.group])===String(g)).map(r=>Number(r[m.y[0]])).filter(v=>!isNaN(v));
+          const avg = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
+          return totals[li] ? +(avg/totals[li]*100).toFixed(1) : 0;
+        }),
+        itemStyle: { color: VC(m.group, g) },
+        barMaxWidth: 40,
+      })),
+    };
+  }
+
+  // ── WORD CLOUD ──
+  else if (type === 'wordcloud') {
+    const col = m.x;
+    const freq = {};
+    rows.forEach(r => { const v = r[col]; if (v != null) freq[String(v)] = (freq[String(v)]||0)+1; });
+    const words = Object.entries(freq).map(([name,value]) => ({name, value})).sort((a,b) => b.value-a.value).slice(0, 80);
+    const maxV = Math.max(...words.map(w => w.value), 1);
+    option = {
+      tooltip: { formatter: p => `${p.name}: ${p.value}` },
+      series: [{
+        type: 'wordCloud',
+        shape: 'circle',
+        left: 'center', top: 'center', width: '90%', height: '85%',
+        sizeRange: [12, 52],
+        rotationRange: [-30, 30],
+        gridSize: 8,
+        textStyle: {
+          fontFamily: "'Noto Sans KR', sans-serif",
+          fontWeight: 700,
+          color: () => PALETTE[Math.floor(Math.random()*PALETTE.length)],
+        },
+        emphasis: { textStyle: { shadowBlur: 10, shadowColor: '#000' } },
+        data: words,
+      }],
+    };
+  }
+
+  // ── CROSS HEATMAP (cat × cat) ──
+  else if (type === 'cross_heatmap') {
+    const xCats = [...new Set(getCol(m.x))].slice(0, 12);
+    const yCats = [...new Set(getCol(m.group))].slice(0, 12);
+    const data = []; let minV = Infinity, maxV = -Infinity;
+    xCats.forEach((xc, xi) => {
+      yCats.forEach((yc, yi) => {
+        const vals = rows.filter(r => String(r[m.x])===String(xc) && String(r[m.group])===String(yc)).map(r=>Number(r[m.y[0]])).filter(v=>!isNaN(v));
+        const avg = vals.length ? +(vals.reduce((s,v)=>s+v,0)/vals.length).toFixed(1) : 0;
+        data.push([xi, yi, avg]);
+        if (avg<minV) minV=avg; if (avg>maxV) maxV=avg;
+      });
+    });
+    option = {
+      tooltip: { formatter: p => `${xCats[p.value[0]]} × ${yCats[p.value[1]]}<br>값: ${p.value[2]}` },
+      grid: { top:10, right:80, bottom:50, left:80, containLabel:true },
+      xAxis: { type:'category', data:xCats, axisLabel:{rotate:30,fontSize:9} },
+      yAxis: { type:'category', data:yCats, axisLabel:{fontSize:9} },
+      visualMap: { min:minV, max:maxV, calculable:true, orient:'vertical', right:0, top:'center',
+        textStyle:{color:'#8b8d9e',fontSize:9}, inRange:{color:['#1a1b24','#4f7df980','#4f7df9']}, itemHeight:140 },
+      series: [{ type:'heatmap', data:data,
+        label:{show:true,color:'#e8e9f0',fontSize:9,formatter:p=>p.value[2]},
+        emphasis:{itemStyle:{shadowBlur:10}} }],
+    };
+  }
+
+  // ── SLOPE CHART ──
+  else if (type === 'slope' && m.y.length >= 2) {
+    const cats = [...new Set(getCol(m.x))].slice(0, 10);
+    const col1 = m.y[0], col2 = m.y[1];
+    option = {
+      tooltip: {},
+      grid: { top:30, right:80, bottom:20, left:80 },
+      xAxis: { type:'category', data:[col1, col2], axisLine:{lineStyle:{color:'#2a2b38'}},
+        axisLabel:{fontSize:11,color:'#8b8d9e',fontWeight:600} },
+      yAxis: { type:'value', show:false },
+      series: cats.map((c, i) => {
+        const v1 = rows.filter(r=>String(r[m.x])===String(c)).map(r=>Number(r[col1])).filter(v=>!isNaN(v));
+        const v2 = rows.filter(r=>String(r[m.x])===String(c)).map(r=>Number(r[col2])).filter(v=>!isNaN(v));
+        const a1 = v1.length ? v1.reduce((s,v)=>s+v,0)/v1.length : 0;
+        const a2 = v2.length ? v2.reduce((s,v)=>s+v,0)/v2.length : 0;
+        const clr = VC(m.x, c);
+        return {
+          name:c, type:'line', data:[+a1.toFixed(1), +a2.toFixed(1)],
+          lineStyle:{width:2,color:clr}, itemStyle:{color:clr},
+          symbol:'circle', symbolSize:10,
+          label:{show:true,position:'right',formatter:p=>p.dataIndex===1?c:'',color:clr,fontSize:10},
+          endLabel:{show:true,formatter:'{a}',color:clr,fontSize:10},
+        };
+      }),
+    };
+  }
+
+  // ── KPI CARDS ──
+  else if (type === 'kpi_cards') {
+    const numCols = m.y.slice(0, 6);
+    // Use custom graphic elements instead of standard chart
+    const cardW = 100/(Math.min(numCols.length, 3));
+    const graphics = [];
+    numCols.forEach((col, i) => {
+      const vals = getClean(col);
+      const avg = vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : 0;
+      const max = vals.length ? Math.max(...vals) : 0;
+      const min = vals.length ? Math.min(...vals) : 0;
+      const row = Math.floor(i/3), colIdx = i%3;
+      const cx = (colIdx+0.5)*100/Math.min(numCols.length,3);
+      const cy = numCols.length>3 ? (row===0?30:70) : 50;
+      graphics.push(
+        {type:'text', left:cx+'%', top:(cy-12)+'%', style:{text:col,fill:'#8b8d9e',fontSize:11,fontWeight:500,textAlign:'center',fontFamily:"'Noto Sans KR'"}},
+        {type:'text', left:cx+'%', top:cy+'%', style:{text:fmtNum(avg),fill:'#e8e9f0',fontSize:24,fontWeight:700,textAlign:'center',fontFamily:"'JetBrains Mono',monospace"}},
+        {type:'text', left:cx+'%', top:(cy+10)+'%', style:{text:`↓${fmtNum(min)}  ↑${fmtNum(max)}`,fill:'#5a5c6e',fontSize:9,textAlign:'center',fontFamily:"'JetBrains Mono'"}}
+      );
+    });
+    option = { graphic: graphics };
+  }
+
+  // ── SCATTER + TRENDLINE ──
+  else if (type === 'scatter_trend' && m.y.length >= 1) {
+    const xVals = getClean(m.x), yVals = getClean(m.y[0]);
+    const pts = limit(xVals.map((x,i) => yVals[i]!=null?[x,yVals[i]]:null).filter(Boolean), 300);
+    // Linear regression
+    const n = pts.length;
+    if (n > 2) {
+      const sx=pts.reduce((s,p)=>s+p[0],0), sy=pts.reduce((s,p)=>s+p[1],0);
+      const mx=sx/n, my=sy/n;
+      let num=0,den=0;
+      pts.forEach(p => { num+=(p[0]-mx)*(p[1]-my); den+=(p[0]-mx)**2; });
+      const slope = den ? num/den : 0;
+      const intercept = my - slope*mx;
+      const xMin=Math.min(...pts.map(p=>p[0])), xMax=Math.max(...pts.map(p=>p[0]));
+      option = {
+        tooltip: { formatter: p => p.seriesType==='scatter' ? `${m.x}: ${p.value[0]}<br>${m.y[0]}: ${p.value[1]}` : '' },
+        grid: { top:20, right:30, bottom:40, left:55, containLabel:true },
+        xAxis: { type:'value', name:m.x, nameLocation:'center', nameGap:28 },
+        yAxis: { type:'value', name:m.y[0], nameLocation:'center', nameGap:42 },
+        series: [
+          { type:'scatter', data:pts, symbolSize:7,
+            itemStyle:{ color:C(m.y[0])+'90', borderColor:C(m.y[0]), borderWidth:1 },
+            emphasis:{ itemStyle:{ opacity:1, shadowBlur:8 } } },
+          { type:'line', data:[[xMin, slope*xMin+intercept],[xMax, slope*xMax+intercept]],
+            symbol:'none', lineStyle:{ color:'#fbbf24', width:2, type:'dashed' },
+            tooltip:{ show:false }, markPoint:{ data:[
+              { coord:[xMax, slope*xMax+intercept], value:`y=${slope.toFixed(2)}x+${intercept.toFixed(0)}`,
+                label:{ show:true, color:'#fbbf24', fontSize:10, fontFamily:"'JetBrains Mono'",
+                        position:'left', backgroundColor:'#12131acc', padding:[3,6], borderRadius:4 },
+                symbol:'none' }
+            ] } },
+        ],
+      };
+    }
+  }
+
+  // ── DUAL Y-AXIS ──
+  else if (type === 'dual_axis' && m.y.length >= 2) {
+    const labels = limit([...new Set(getCol(m.x))], 30);
+    const d0 = agg(m.x, m.y[0], labels), d1 = agg(m.x, m.y[1], labels);
+    option = {
+      tooltip: { trigger:'axis' },
+      legend: { show:true, bottom:0 },
+      grid: { top:25, right:60, bottom:40, left:60, containLabel:true },
+      xAxis: { type:'category', data:labels, axisLabel:{ rotate:labels.length>12?30:0, fontSize:9 } },
+      yAxis: [
+        { type:'value', name:m.y[0], nameTextStyle:{color:C(m.y[0]),fontSize:10},
+          axisLabel:{color:'#8b8d9e',fontSize:9}, splitLine:{lineStyle:{color:'#2a2b3825',type:'dashed'}} },
+        { type:'value', name:m.y[1], nameTextStyle:{color:C(m.y[1]),fontSize:10},
+          axisLabel:{color:'#8b8d9e',fontSize:9}, splitLine:{show:false} },
+      ],
+      series: [
+        { name:m.y[0], type:'bar', yAxisIndex:0, data:d0,
+          itemStyle:{ color:C(m.y[0])+'cc', borderRadius:[4,4,0,0] }, barMaxWidth:28 },
+        { name:m.y[1], type:'line', yAxisIndex:1, data:d1, smooth:true,
+          lineStyle:{ width:2.5, color:C(m.y[1]) }, itemStyle:{ color:C(m.y[1]) },
+          symbol:labels.length>20?'none':'circle', symbolSize:6 },
+      ],
+    };
+  }
+
+  // ── BAR + LINE + AREA (3-combo) ──
+  else if (type === 'bar_line_area' && m.y.length >= 3) {
+    const labels = limit([...new Set(getCol(m.x))], 30);
+    const d0 = agg(m.x, m.y[0], labels);
+    const d1 = agg(m.x, m.y[1], labels);
+    const d2 = agg(m.x, m.y[2], labels);
+    option = {
+      tooltip: { trigger:'axis' },
+      legend: { show:true, bottom:0 },
+      grid: { top:25, right:60, bottom:40, left:60, containLabel:true },
+      xAxis: { type:'category', data:labels, axisLabel:{ rotate:labels.length>12?30:0, fontSize:9 } },
+      yAxis: [
+        { type:'value', name:m.y[0], nameTextStyle:{color:C(m.y[0]),fontSize:10},
+          axisLabel:{fontSize:9}, splitLine:{lineStyle:{color:'#2a2b3825',type:'dashed'}} },
+        { type:'value', name:m.y[2], nameTextStyle:{color:C(m.y[2]),fontSize:10},
+          axisLabel:{fontSize:9}, splitLine:{show:false} },
+      ],
+      series: [
+        { name:m.y[0], type:'bar', yAxisIndex:0, data:d0,
+          itemStyle:{ color:new echarts.graphic.LinearGradient(0,1,0,0,[
+            {offset:0,color:C(m.y[0])+'40'},{offset:1,color:C(m.y[0])+'cc'}
+          ]), borderRadius:[4,4,0,0] }, barMaxWidth:28 },
+        { name:m.y[1], type:'line', yAxisIndex:0, data:d1, smooth:true,
+          lineStyle:{ width:2.5, color:C(m.y[1]) }, itemStyle:{ color:C(m.y[1]) },
+          symbol:'circle', symbolSize:5 },
+        { name:m.y[2], type:'line', yAxisIndex:1, data:d2, smooth:true, symbol:'none',
+          lineStyle:{ width:1.5, color:C(m.y[2]) },
+          areaStyle:{ color:new echarts.graphic.LinearGradient(0,0,0,1,[
+            {offset:0,color:C(m.y[2])+'35'},{offset:1,color:C(m.y[2])+'05'}
+          ]) } },
+      ],
+    };
+  }
+
+  // ── PIE + BAR COMBO ──
+  else if (type === 'pie_bar') {
+    const labels = [...new Set(getCol(m.x))].slice(0,7);
+    const data = agg(m.x, m.y[0], labels);
+    option = {
+      tooltip: { trigger:'item' },
+      grid: { top:20, right:'8%', bottom:25, left:'55%', containLabel:true },
+      xAxis: { type:'value', show:true, splitLine:{lineStyle:{color:'#2a2b3825'}} },
+      yAxis: { type:'category', data:labels, axisLabel:{fontSize:10}, inverse:true },
+      series: [
+        // Pie (left half)
+        { type:'pie', radius:['25%','55%'], center:['25%','50%'],
+          data:labels.map((l,i) => ({value:data[i],name:l,itemStyle:{color:VC(m.x,l)}})),
+          label:{show:true,color:'#8b8d9e',fontSize:9,formatter:'{d}%'},
+          itemStyle:{borderColor:'#12131a',borderWidth:2,borderRadius:4},
+          emphasis:{itemStyle:{shadowBlur:15}} },
+        // Bar (right half)
+        { type:'bar', data:data.map((v,i) => ({value:v,itemStyle:{color:VC(m.x,labels[i])}})),
+          barMaxWidth:20, itemStyle:{borderRadius:[0,4,4,0]},
+          label:{show:true,position:'right',color:'#8b8d9e',fontSize:9,formatter:p=>fmtNum(p.value)} },
+      ],
+    };
+  }
+
+  if (option) {
+    option.animationDuration = 800;
+    option.animationEasing = 'cubicOut';
+    chart.setOption(option);
+  }
+}
+
+
+function pearson(x, y) {
+  const n = x.length, mx = x.reduce((s,v)=>s+v,0)/n, my = y.reduce((s,v)=>s+v,0)/n;
+  let num=0, dx=0, dy=0;
+  for (let i=0;i<n;i++) { const a=x[i]-mx, b=y[i]-my; num+=a*b; dx+=a*a; dy+=b*b; }
+  const d = Math.sqrt(dx*dy);
+  return d ? num/d : 0;
+}
+
+function aggregateByCategory(rows, catCol, numCol, labels) {
+  return labels.map(l => {
+    const vals = rows.filter(r => String(r[catCol])===String(l)).map(r=>Number(r[numCol])).filter(v=>!isNaN(v));
+    return vals.length ? +(vals.reduce((s,v)=>s+v,0)/vals.length).toFixed(2) : 0;
+  });
+}
+
+// ═══ app.js ═══
+// ChartForge — app.js
+// Upload, rendering pipeline, menus, table
+
+// DOM references (set on load)
+let dropZone, fileInput;
+
+document.addEventListener("DOMContentLoaded", () => {
+  dropZone = document.getElementById("dropZone");
+  fileInput = document.getElementById("fileInput");
+  dropZone.addEventListener("click", () => fileInput.click());
+  dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("dragover"); });
+  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+  dropZone.addEventListener("drop", e => {
+    e.preventDefault(); dropZone.classList.remove("dragover");
+    if (e.dataTransfer.files.length) uploadFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener("change", () => { if (fileInput.files.length) uploadFile(fileInput.files[0]); });
+});
+
+// ─────────────────────────────────────────────────────
+// Upload Handling
+// ─────────────────────────────────────────────────────
+
+
+async function uploadFile(file) {
+  const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+  _progressStart(`${file.name} (${sizeMB}MB)`);
+  const form = new FormData();
+  form.append('file', file);
+  try {
+    _progressStep('upload', '서버로 파일 전송 중...');
+    const res = await fetch(API_BASE + '/api/analyze', { method: 'POST', body: form });
+    if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || `HTTP ${res.status}`); }
+    _progressDone('upload');
+
+    _progressStep('parse', 'API 응답 파싱 중...');
+    const data = await res.json();
+    _progressDone('parse');
+
+    await renderResultsAsync(data);
+  } catch (e) { alert('오류: ' + e.message); }
+  finally { _progressEnd(); }
+}
+
+// ─────────────────────────────────────────────────────
+// Non-blocking Render Pipeline
+// ─────────────────────────────────────────────────────
+function _yield() { return new Promise(r => setTimeout(r, 0)); }
+
+// Public entry point (called from demo button too)
+function renderResults(data) {
+  _progressStart(data.filename || '데이터');
+  // Mark upload/parse as already done (data is pre-loaded)
+  _progressStep('upload', '데이터 로드됨');
+  _progressDone('upload');
+  _progressStep('parse', '파싱 완료');
+  _progressDone('parse');
+  renderResultsAsync(data).then(() => _progressEnd());
+}
+
+async function renderResultsAsync(data) {
+  chartInstances.forEach(c => c.dispose());
+  chartInstances.length = 0;
+  currentData = data;
+
+  const results = document.getElementById('results');
+  results.classList.add('active');
+
+  // Step 1: Colors
+  _progressStep('colors', '색상 시스템 초기화...');
+  initColumnColors(data.column_analysis);
+  initValueColors(data.column_analysis);
+  _progressDone('colors');
+  await _yield();
+
+  // Step 2: Summary
+  _progressStep('summary', '파일 요약 생성...');
+  renderSummary(data);
+  _progressDone('summary');
+  await _yield();
+
+  // Step 3: Columns
+  _progressStep('columns', `컬럼 분석 렌더링 (${data.column_analysis.length}개)...`);
+  renderColumns(data.column_analysis);
+  _progressDone('columns');
+  await _yield();
+
+  // Step 4: Chart cards (DOM only, no rendering yet)
+  _progressStep('cards', `차트 카드 생성 (${data.recommendations.length}개)...`);
+  _createChartCards(data);
+  _progressDone('cards');
+  await _yield();
+
+  // Step 5: Render charts one by one (non-blocking)
+  const total = data.recommendations.length;
+  for (let i = 0; i < total; i++) {
+    const rec = data.recommendations[i];
+    const chartId = `echart-${i}`;
+    _progressStep('chart', `차트 렌더링 ${i + 1}/${total}: ${rec.name_ko}...`, Math.round((i / total) * 100));
+    try { buildEChart(chartId, rec, data.preview); } catch (e) { console.warn(`Chart ${i} failed:`, e); }
+    // Yield every chart to prevent blocking
+    if (i % 2 === 0) await _yield();
+  }
+  _progressDone('chart');
+  await _yield();
+
+  // Step 6: Table
+  _progressStep('table', '데이터 테이블 생성...');
+  renderTable(data.preview);
+  _progressDone('table');
+
+  results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  window.addEventListener('resize', () => chartInstances.forEach(c => c.resize()));
+}
+
+function _createChartCards(data) {
+  const el = document.getElementById('recsGrid');
+  el.innerHTML = '';
+
+  data.recommendations.forEach((rec, idx) => {
+    const card = document.createElement('div');
+    const wideTypes = ['sankey','parallel','themeriver','treemap','sunburst','heatmap','calendar_heatmap','cross_heatmap','kpi_cards','wordcloud','pie_bar','bar_line_area'];
+    card.className = `rec-card animate-in${wideTypes.includes(rec.chart_type) ? ' full-width' : ''}`;
+    card.style.animationDelay = `${idx * 0.04}s`;
+    card.dataset.idx = idx;
+
+    const scoreClass = rec.score >= 85 ? 'high' : rec.score >= 70 ? 'mid' : 'low';
+    const mappingHtml = Object.entries(rec.mapping).map(([axis, fields]) => {
+      const fs = Array.isArray(fields) ? fields : [fields];
+      return fs.map(f => `<span class="mapping-tag"><span class="axis">${axis}</span><span class="field">${f}</span></span>`).join('');
+    }).join('');
+
+    const chartId = `echart-${idx}`;
+    const chartHeight = ['sankey','heatmap','parallel','themeriver','treemap','sunburst','calendar_heatmap','cross_heatmap'].includes(rec.chart_type) ? '380px' : '300px';
+
+    card.innerHTML = `
+      <div class="rec-card-head">
+        <div class="rec-info" onclick="toggleCollapse(${idx})">
+          <span class="rec-icon">${rec.icon}</span>
+          <div><div class="rec-title">${rec.name_ko}</div><div class="rec-subtitle">${rec.name}</div></div>
+        </div>
+        <div class="rec-actions" onclick="event.stopPropagation()">
+          <span class="rec-score ${scoreClass}">${rec.score}</span>
+          <div class="menu-wrap">
+            <button class="menu-btn" onclick="toggleMenu(${idx}, this)" title="메뉴">⋯</button>
+            <div class="menu-dropdown" id="menu-${idx}">
+              <button class="menu-item" onclick="saveChartImage(${idx})"><span class="mi-icon">📷</span>이미지로 저장</button>
+              <button class="menu-item" onclick="copyChartCode(${idx})"><span class="mi-icon">📋</span>코드 복사</button>
+              <button class="menu-item" onclick="exportChartCSV(${idx})"><span class="mi-icon">💾</span>데이터 CSV 저장</button>
+              <div style="border-top:1px solid var(--border);margin:.3rem 0"></div>
+              <button class="menu-item" onclick="exportOverlaysJSON(${idx})"><span class="mi-icon">📤</span>오버레이 저장</button>
+              <button class="menu-item" onclick="importOverlaysJSON(${idx})"><span class="mi-icon">📥</span>오버레이 로드</button>
+            </div>
+          </div>
+          <button class="collapse-btn" onclick="toggleCollapse(${idx})" title="접기/펼치기">▼</button>
+        </div>
+      </div>
+      <div class="rec-body">
+        <div class="rec-reason">${rec.reason}</div>
+        <div class="rec-mapping">${mappingHtml}</div>
+        <div class="chart-container" style="height:${chartHeight}" ondblclick="onContainerDblClick(event,${idx})">
+          <div id="${chartId}" style="width:100%;height:100%"></div>
+          <div class="chart-overlay" id="overlay-${idx}"></div>
+          <div class="chart-toolbar">
+            <button class="tb-btn" onclick="toggleOverlayVisibility(${idx}, this)" title="오버레이 보기/숨기기">👁</button>
+            <button class="tb-btn" onclick="startMemo(${idx})" title="메모 추가">✎</button>
+            <button class="tb-btn" onclick="addHLine(${idx})" title="가로 점선">━</button>
+            <button class="tb-btn" onclick="addVLine(${idx})" title="세로 점선">┃</button>
+            <button class="tb-btn" onclick="addRect(${idx})" title="점선 박스">▢</button>
+            <button class="tb-btn" onclick="clearOverlays(${idx})" title="오버레이 모두 제거">🗑</button>
+          </div>
+        </div>
+      </div>`;
+    el.appendChild(card);
+    card._rec = rec;
+    card._chartId = chartId;
+  });
+}
+
+// ─────────────────────────────────────────────────────
+// Progress Tracker
+// ─────────────────────────────────────────────────────
+const STEP_LABELS = {
+  upload: '📤 파일 전송', parse: '📋 응답 파싱', colors: '🎨 색상 초기화',
+  summary: '📊 파일 요약', columns: '🔬 컬럼 분석', cards: '🃏 차트 카드 생성',
+  chart: '📈 차트 렌더링', table: '📄 데이터 테이블',
+};
+let _stepTimers = {};
+
+function _progressStart(title) {
+  const loading = document.getElementById('loading');
+  document.getElementById('loadingMsg').innerHTML = `<strong>${title}</strong>`;
+  document.getElementById('progressSteps').innerHTML = Object.entries(STEP_LABELS).map(([k, v]) =>
+    `<div class="p-step" id="ps-${k}"><span class="p-icon">○</span><span class="p-label">${v}</span><span class="p-time" id="pt-${k}"></span></div>`
+  ).join('');
+  document.getElementById('progressBar').style.width = '0%';
+  _stepTimers = {};
+  loading.classList.add('active');
+}
+
+function _progressStep(id, detail, pct) {
+  _stepTimers[id] = performance.now();
+  const step = document.getElementById(`ps-${id}`);
+  if (step) { step.className = 'p-step active'; step.querySelector('.p-icon').textContent = '⟳'; }
+  // Update bar
+  const keys = Object.keys(STEP_LABELS);
+  const idx = keys.indexOf(id);
+  const barPct = pct != null ? pct : Math.round(((idx + 0.5) / keys.length) * 100);
+  document.getElementById('progressBar').style.width = barPct + '%';
+  // Update main message
+  document.getElementById('loadingMsg').innerHTML = detail || '';
+}
+
+function _progressDone(id) {
+  const elapsed = _stepTimers[id] ? Math.round(performance.now() - _stepTimers[id]) : 0;
+  const step = document.getElementById(`ps-${id}`);
+  if (step) {
+    step.className = 'p-step done';
+    step.querySelector('.p-icon').textContent = '✓';
+    const timeEl = document.getElementById(`pt-${id}`);
+    if (timeEl) timeEl.textContent = elapsed >= 1000 ? (elapsed / 1000).toFixed(1) + 's' : elapsed + 'ms';
+  }
+  const keys = Object.keys(STEP_LABELS);
+  const idx = keys.indexOf(id);
+  document.getElementById('progressBar').style.width = Math.round(((idx + 1) / keys.length) * 100) + '%';
+}
+
+function _progressEnd() {
+  document.getElementById('progressBar').style.width = '100%';
+  setTimeout(() => document.getElementById('loading').classList.remove('active'), 400);
+}
+
+function renderSummary(data) {
+  const el = document.getElementById('fileSummary');
+  const numericCols = data.column_analysis.filter(c => c.semantic_type === 'numeric').length;
+  const si = data.sampling_info;
+  const sampledHtml = si && si.sampled ? `
+    <div class="stat-card animate-in delay-2"><div class="label">샘플링</div>
+      <div class="value" style="font-size:.85rem;color:var(--cyan)">
+        ${si.analysis_sample.toLocaleString()}행 분석<br>
+        <span style="font-size:.7rem;color:var(--text-muted)">${si.original_rows.toLocaleString()}행 중</span>
+      </div></div>` : '';
+  const timeHtml = data.processing_time_ms ? `
+    <div class="stat-card animate-in delay-2"><div class="label">처리 시간</div>
+      <div class="value" style="font-size:1.2rem;color:var(--text-dim)">${data.processing_time_ms >= 1000 ? (data.processing_time_ms/1000).toFixed(1)+'s' : data.processing_time_ms+'ms'}</div></div>` : '';
+  el.innerHTML = `
+    <div class="stat-card animate-in"><div class="label">파일명</div><div class="value" style="font-size:1rem;word-break:break-all">${data.filename}</div></div>
+    <div class="stat-card animate-in delay-1"><div class="label">행 수</div><div class="value accent">${data.shape.rows.toLocaleString()}</div></div>
+    <div class="stat-card animate-in delay-1"><div class="label">컬럼 수</div><div class="value green">${data.shape.columns}</div></div>
+    <div class="stat-card animate-in delay-2"><div class="label">수치형 컬럼</div><div class="value amber">${numericCols}</div></div>
+    <div class="stat-card animate-in delay-2"><div class="label">추천 차트</div><div class="value accent">${data.recommendations.length}</div></div>
+    ${sampledHtml}${timeHtml}`;
+}
+
+function renderColumns(cols) {
+  document.getElementById('columnsGrid').innerHTML = cols.map((c, idx) => {
+    const color = columnColors[c.name] || PALETTE[idx % PALETTE.length];
+    const hasCatValues = c.top_values && Object.keys(c.top_values).length >= 2;
+
+    // Build value color chips HTML
+    let valChipsHtml = '';
+    if (hasCatValues) {
+      const vals = Object.keys(c.top_values);
+      valChipsHtml = `
+        <div class="val-colors-section">
+          <div class="val-colors-title">분류값 색상 (${vals.length})</div>
+          <div class="val-colors-grid">
+            ${vals.map((v, vi) => {
+              const vKey = c.name + '::' + v;
+              const vColor = valueColors[vKey] || PALETTE[vi % PALETTE.length];
+              return `<div class="val-color-chip">
+                <div class="val-color-dot" style="background:${vColor}">
+                  <input type="color" value="${vColor}" data-vkey="${vKey}" data-col="${c.name}" data-val="${v}"
+                         onchange="onValueColorChange(this)">
+                </div>
+                <span class="val-color-name" title="${v}">${v}</span>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+    }
+
+    const isDisabled = disabledColumns.has(c.name);
+    return `
+    <div class="col-card animate-in${isDisabled ? ' disabled' : ''}" data-colname="${c.name}">
+      <div class="col-card-header">
+        <span class="col-name">${c.name}</span>
+        <div style="display:flex;align-items:center;gap:.4rem">
+          <span class="col-type ${c.semantic_type}">${c.semantic_type}</span>
+          <button class="col-toggle${isDisabled ? ' off' : ''}" onclick="onColumnToggle('${c.name}', this)" title="${isDisabled ? '차트에 포함' : '차트에서 제외'}"></button>
+        </div>
+      </div>
+      <div class="col-color-row">
+        <div class="col-color-swatch" id="swatch-${idx}" style="background:${color}">
+          <input type="color" value="${color}" data-col="${c.name}" data-idx="${idx}"
+                 onchange="onColumnColorChange(this)">
+        </div>
+        <span class="col-color-label">${color}</span>
+      </div>
+      <div class="col-meta">
+        <strong>${c.unique_count}</strong> 고유값 · <strong>${c.null_pct}%</strong> 결측
+        ${c.stats ? `<br>범위: <strong>${fmtNum(c.stats.min)}</strong> ~ <strong>${fmtNum(c.stats.max)}</strong>` : ''}
+        ${c.stats && c.stats.mean !== undefined ? `<br>평균: <strong>${fmtNum(c.stats.mean)}</strong> · 표준편차: <strong>${fmtNum(c.stats.std)}</strong>` : ''}
+      </div>
+      ${valChipsHtml}
+      <div class="col-samples">${(c.sample_values||[]).map(v=>`<span class="sample-chip" title="${v}">${v}</span>`).join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+function onColumnColorChange(input) {
+  const colName = input.dataset.col;
+  const idx = input.dataset.idx;
+  const newColor = input.value;
+  columnColors[colName] = newColor;
+
+  const swatch = document.getElementById(`swatch-${idx}`);
+  if (swatch) swatch.style.background = newColor;
+  const label = swatch?.parentElement?.querySelector('.col-color-label');
+  if (label) label.textContent = newColor;
+
+  reRenderCharts();
+}
+
+function onValueColorChange(input) {
+  const vKey = input.dataset.vkey;
+  const newColor = input.value;
+  valueColors[vKey] = newColor;
+  input.parentElement.style.background = newColor;
+  reRenderCharts();
+}
+
+function onColumnToggle(colName, btn) {
+  if (disabledColumns.has(colName)) {
+    disabledColumns.delete(colName);
+    btn.classList.remove('off');
+    btn.title = '차트에서 제외';
+  } else {
+    disabledColumns.add(colName);
+    btn.classList.add('off');
+    btn.title = '차트에 포함';
+  }
+  // Update column card visual
+  const card = btn.closest('.col-card');
+  if (card) card.classList.toggle('disabled', disabledColumns.has(colName));
+
+  applyColumnFilter();
+}
+
+function applyColumnFilter() {
+  if (!currentData) return;
+  document.querySelectorAll('.rec-card').forEach(card => {
+    const idx = parseInt(card.dataset.idx);
+    const rec = currentData.recommendations[idx];
+    if (!rec) return;
+
+    // Check if any disabled column is used in this chart's mapping
+    const m = rec.mapping;
+    const usedCols = new Set();
+    if (m.x) { (Array.isArray(m.x) ? m.x : [m.x]).forEach(c => usedCols.add(c)); }
+    if (m.y) { m.y.forEach(c => usedCols.add(c)); }
+    if (m.group) usedCols.add(m.group);
+    // Remove meta-columns
+    usedCols.delete('columns'); usedCols.delete('rows'); usedCols.delete('summary');
+
+    const hasDisabled = [...usedCols].some(c => disabledColumns.has(c));
+    card.classList.toggle('col-hidden', hasDisabled);
+  });
+
+  // Update count in summary
+  const visibleCount = document.querySelectorAll('.rec-card:not(.col-hidden)').length;
+  const totalCount = currentData.recommendations.length;
+  const countEl = document.getElementById('fileSummary')?.querySelector('.value.accent:last-of-type');
+  // No need to update if element doesn't exist
+}
+
+// ─── Collapse ───
+function toggleCollapse(idx) {
+  const card = document.querySelector(`.rec-card[data-idx="${idx}"]`);
+  if (!card) return;
+  card.classList.toggle('collapsed');
+  // Resize chart when expanding
+  if (!card.classList.contains('collapsed')) {
+    const ci = chartInstances.find(c => c.getDom()?.id === `echart-${idx}`);
+    if (ci) setTimeout(() => ci.resize(), 350);
+  }
+}
+
+// ─── Menu ───
+function toggleMenu(idx, btn) {
+  event.stopPropagation();
+
+  // Close any open menu
+  const existing = document.getElementById('active-menu');
+  if (existing) { existing.remove(); }
+
+  // Check if this menu was already open (toggle off)
+  if (btn.dataset.open === 'true') {
+    btn.dataset.open = '';
+    return;
+  }
+  // Reset all buttons
+  document.querySelectorAll('.menu-btn[data-open="true"]').forEach(b => b.dataset.open = '');
+
+  // Clone menu content and portal to body
+  const menuSrc = document.getElementById(`menu-${idx}`);
+  const menu = menuSrc.cloneNode(true);
+  menu.id = 'active-menu';
+  menu.style.display = 'block';
+  document.body.appendChild(menu);
+
+  // Position directly below ⋯ button
+  const r = btn.getBoundingClientRect();
+  const mw = menu.offsetWidth || 200;
+  let left = r.left + r.width / 2 - mw / 2; // center under button
+  if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
+  if (left < 8) left = 8;
+  menu.style.top = (r.bottom + 4) + 'px';
+  menu.style.left = left + 'px';
+
+  btn.dataset.open = 'true';
+
+  // Close on any outside click
+  const close = (e) => {
+    if (!menu.contains(e.target) && e.target !== btn) {
+      menu.remove();
+      btn.dataset.open = '';
+      document.removeEventListener('click', close, true);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', close, true), 10);
+
+  // Close on menu item click
+  menu.querySelectorAll('.menu-item').forEach(item => {
+    item.addEventListener('click', () => {
+      menu.remove();
+      btn.dataset.open = '';
+      document.removeEventListener('click', close, true);
+    });
+  });
+}
+
+function saveChartImage(idx) {
+  const ci = chartInstances.find(c => c.getDom()?.id === `echart-${idx}`);
+  if (!ci) return;
+  const card = document.querySelector(`.rec-card[data-idx="${idx}"]`);
+  const title = card?.querySelector('.rec-title')?.textContent || 'chart';
+  const overlay = document.getElementById(`overlay-${idx}`);
+  const container = overlay?.parentElement;
+
+  // Get ECharts base image
+  const scale = 2;
+  const baseURL = ci.getDataURL({ type: 'png', pixelRatio: scale, backgroundColor: '#1a1b24' });
+
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+
+    // Draw overlays if any
+    if (overlay && container) {
+      const cw = container.offsetWidth, ch = container.offsetHeight;
+
+      // Horizontal lines
+      overlay.querySelectorAll('.chart-hline').forEach(el => {
+        const y = (parseFloat(el.style.top) || 0) * scale;
+        ctx.setLineDash([4 * scale, 4 * scale]);
+        ctx.strokeStyle = '#f87171';
+        ctx.lineWidth = 0.5 * scale;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      });
+
+      // Vertical lines
+      overlay.querySelectorAll('.chart-vline').forEach(el => {
+        const x = (parseFloat(el.style.left) || 0) * scale;
+        ctx.setLineDash([4 * scale, 4 * scale]);
+        ctx.strokeStyle = '#f87171';
+        ctx.lineWidth = 0.5 * scale;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      });
+
+      // Rectangles
+      overlay.querySelectorAll('.chart-rect').forEach(el => {
+        const rx = (parseFloat(el.style.left) || 0) * scale;
+        const ry = (parseFloat(el.style.top) || 0) * scale;
+        const rw = (parseFloat(el.style.width) || 100) * scale;
+        const rh = (parseFloat(el.style.height) || 60) * scale;
+        ctx.setLineDash([4 * scale, 4 * scale]);
+        ctx.strokeStyle = '#f87171';
+        ctx.lineWidth = 0.5 * scale;
+        ctx.strokeRect(rx, ry, rw, rh);
+      });
+
+      // Memos
+      ctx.setLineDash([]);
+      overlay.querySelectorAll('.chart-anno').forEach(el => {
+        const tx = (parseFloat(el.style.left) || 0) * scale;
+        const ty = (parseFloat(el.style.top) || 0) * scale;
+        const text = el.querySelector('.a-text')?.textContent || '';
+        if (!text) return;
+        ctx.font = `${12 * scale}px 'Noto Sans KR', sans-serif`;
+        ctx.fillStyle = '#e8e9f0';
+        ctx.shadowColor = 'rgba(0,0,0,0.7)';
+        ctx.shadowBlur = 4 * scale;
+        ctx.fillText(text, tx + 4 * scale, ty + 14 * scale);
+        ctx.shadowBlur = 0;
+      });
+    }
+
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = `chartforge_${title}_${idx}.png`;
+    a.click();
+  };
+  img.src = baseURL;
+  closeAllMenus();
+}
+
+function copyChartCode(idx) {
+  const ci = chartInstances.find(c => c.getDom()?.id === `echart-${idx}`);
+  if (!ci) return;
+  const opt = ci.getOption();
+  // Clean for export
+  const cleaned = JSON.parse(JSON.stringify(opt, (k, v) => {
+    if (k === 'backgroundColor' || k === 'animationDuration' || k === 'animationEasing') return undefined;
+    return v;
+  }));
+  const code = `// Apache ECharts Option\nconst option = ${JSON.stringify(cleaned, null, 2)};\n\n// Usage:\n// const chart = echarts.init(document.getElementById('chart'));\n// chart.setOption(option);`;
+  navigator.clipboard.writeText(code).then(() => {
+    showToast('차트 코드가 클립보드에 복사되었습니다');
+  }).catch(() => {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = code; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    showToast('차트 코드가 복사되었습니다');
+  });
+  closeAllMenus();
+}
+
+function exportChartCSV(idx) {
+  if (!currentData) return;
+  const card = document.querySelector(`.rec-card[data-idx="${idx}"]`);
+  const rec = card?._rec;
+  if (!rec) return;
+
+  const m = rec.mapping;
+  const rows = currentData.preview.data;
+  // Collect relevant columns
+  const cols = new Set();
+  if (m.x) { (Array.isArray(m.x) ? m.x : [m.x]).forEach(c => cols.add(c)); }
+  if (m.y) { m.y.forEach(c => cols.add(c)); }
+  if (m.group) cols.add(m.group);
+  // Filter to actual columns
+  const validCols = [...cols].filter(c => currentData.preview.columns.includes(c));
+  if (!validCols.length) { validCols.push(...currentData.preview.columns.slice(0, 5)); }
+
+  let csv = validCols.join(',') + '\n';
+  rows.forEach(r => {
+    csv += validCols.map(c => {
+      const v = r[c];
+      if (v === null || v === undefined) return '';
+      const s = String(v);
+      return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
+    }).join(',') + '\n';
+  });
+
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const title = card?.querySelector('.rec-title')?.textContent || 'data';
+  a.download = `chartforge_${title}_${idx}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  closeAllMenus();
+}
+
+function closeAllMenus() {
+  const m = document.getElementById('active-menu');
+  if (m) m.remove();
+  document.querySelectorAll('.menu-btn[data-open="true"]').forEach(b => b.dataset.open = '');
+}
+
+// ─── Toast ───
+function showToast(msg) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.style.cssText = 'position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:.7rem 1.4rem;border-radius:10px;font-size:.85rem;z-index:9999;opacity:0;transition:opacity .3s;box-shadow:0 4px 20px rgba(0,0,0,.5);pointer-events:none';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  setTimeout(() => { t.style.opacity = '0'; }, 2500);
+}
+
+
+function renderTable(preview) {
+  const wrap = document.getElementById('tableWrap');
+  const cols = preview.columns, rows = preview.data.slice(0, 100);
+  let html = '<table><thead><tr><th>#</th>';
+  cols.forEach(c => html += `<th>${c}</th>`);
+  html += '</tr></thead><tbody>';
+  rows.forEach((r, i) => {
+    html += `<tr><td style="color:var(--text-muted)">${i+1}</td>`;
+    cols.forEach(c => {
+      const v = r[c];
+      html += v===null||v===undefined ? `<td class="null">null</td>` : `<td title="${String(v)}">${String(v)}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+
+const DEMO_DATA={"filename": "sample.xlsx", "shape": {"rows": 150, "columns": 8}, "column_analysis": [{"name": "날짜", "dtype": "datetime64[us]", "null_count": 0, "null_pct": 0.0, "unique_count": 150, "total_count": 150, "sample_values": ["2023-01-01 00:00:00", "2023-01-02 00:00:00", "2023-01-03 00:00:00", "2023-01-04 00:00:00", "2023-01-05 00:00:00"], "semantic_type": "temporal", "temporal_grain": "daily", "stats": {"min": "2023-01-01 00:00:00", "max": "2023-05-30 00:00:00"}}, {"name": "카테고리", "dtype": "str", "null_count": 0, "null_pct": 0.0, "unique_count": 5, "total_count": 150, "sample_values": ["가구", "스포츠", "식품", "스포츠", "스포츠"], "semantic_type": "low_cardinality", "top_values": {"가구": 40, "스포츠": 30, "의류": 28, "식품": 27, "전자제품": 25}}, {"name": "지역", "dtype": "str", "null_count": 0, "null_pct": 0.0, "unique_count": 4, "total_count": 150, "sample_values": ["서울", "대구", "부산", "서울", "서울"], "semantic_type": "low_cardinality", "top_values": {"인천": 43, "서울": 39, "대구": 38, "부산": 30}}, {"name": "채널", "dtype": "str", "null_count": 0, "null_pct": 0.0, "unique_count": 3, "total_count": 150, "sample_values": ["모바일", "오프라인", "온라인", "모바일", "온라인"], "semantic_type": "low_cardinality", "top_values": {"오프라인": 55, "온라인": 49, "모바일": 46}}, {"name": "매출액", "dtype": "float64", "null_count": 0, "null_pct": 0.0, "unique_count": 132, "total_count": 150, "sample_values": ["484.0", "427.0", "739.0", "435.0", "390.0"], "semantic_type": "numeric", "stats": {"mean": 498.6867, "median": 489.5, "std": 151.6672, "min": 115.0, "max": 988.0}}, {"name": "이익", "dtype": "float64", "null_count": 0, "null_pct": 0.0, "unique_count": 104, "total_count": 150, "sample_values": ["103.0", "101.0", "47.0", "133.0", "84.0"], "semantic_type": "numeric", "stats": {"mean": 102.0467, "median": 93.0, "std": 51.7391, "min": 14.0, "max": 249.0}}, {"name": "수량", "dtype": "int64", "null_count": 0, "null_pct": 0.0, "unique_count": 134, "total_count": 150, "sample_values": ["163", "165", "379", "478", "58"], "semantic_type": "numeric", "stats": {"mean": 267.54, "median": 272.5, "std": 141.131, "min": 11.0, "max": 490.0}}, {"name": "평점", "dtype": "float64", "null_count": 0, "null_pct": 0.0, "unique_count": 21, "total_count": 150, "sample_values": ["3.3", "4.7", "4.0", "4.8", "4.6"], "semantic_type": "numeric", "stats": {"mean": 4.022, "median": 4.1, "std": 0.5952, "min": 3.0, "max": 5.0}}], "recommendations": [{"name": "Line Chart", "name_ko": "라인 차트", "icon": "📈", "description": "시간에 따른 추세 변화", "best_for": "시계열, 트렌드", "chart_type": "line", "score": 95, "mapping": {"x": "날짜", "y": ["매출액"]}, "reason": "시간(날짜)에 따른 매출액 추세"}, {"name": "Bar Chart", "name_ko": "막대 차트", "icon": "📊", "description": "카테고리별 값 비교", "best_for": "카테고리 비교", "chart_type": "bar", "score": 90, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 매출액 비교"}, {"name": "Combo Bar+Line", "name_ko": "바+라인 조합", "icon": "📊📈", "description": "막대와 라인을 하나의 차트에 조합하여 두 지표를 동시 비교", "best_for": "매출 vs 이익률, 수량 vs 평균 등", "chart_type": "combo_bar_line", "score": 84, "mapping": {"x": "날짜", "y": ["매출액", "이익"]}, "reason": "날짜별 매출액(막대)와 이익(라인)을 동시 비교합니다"}, {"name": "Scatter + Trend", "name_ko": "산점도+추세선", "icon": "📈🔵", "description": "산점도에 회귀 추세선을 겹쳐 관계와 방향을 동시에 확인", "best_for": "상관분석+예측 방향", "chart_type": "scatter_trend", "score": 83, "mapping": {"x": "매출액", "y": ["이익"]}, "reason": "매출액×이익 산점도에 추세선으로 상관 방향을 표시합니다 (r=0.05)"}, {"name": "Area Chart", "name_ko": "영역 차트", "icon": "🏔️", "description": "시간에 따른 누적 변화 강조", "best_for": "누적 추세", "chart_type": "area", "score": 82, "mapping": {"x": "날짜", "y": ["매출액", "이익", "수량", "평점"]}, "reason": "여러 수치의 누적 변화"}, {"name": "Sankey Diagram", "name_ko": "생키 다이어그램", "icon": "🌊", "description": "카테고리 간 흐름 시각화", "best_for": "흐름, 전환", "chart_type": "sankey", "score": 82, "mapping": {"x": ["카테고리", "지역", "채널"], "y": ["매출액"]}, "reason": "카테고리 → 지역 → 채널 3단계 흐름", "sankey_data": {"nodes": [{"name": "지역:대구"}, {"name": "지역:부산"}, {"name": "지역:서울"}, {"name": "지역:인천"}, {"name": "채널:모바일"}, {"name": "채널:오프라인"}, {"name": "채널:온라인"}, {"name": "카테고리:가구"}, {"name": "카테고리:스포츠"}, {"name": "카테고리:식품"}, {"name": "카테고리:의류"}, {"name": "카테고리:전자제품"}], "links": [{"source": "지역:서울", "target": "채널:오프라인", "value": 10099.0}, {"source": "지역:인천", "target": "채널:온라인", "value": 8707.0}, {"source": "지역:대구", "target": "채널:모바일", "value": 8356.0}, {"source": "카테고리:가구", "target": "지역:인천", "value": 7478.0}, {"source": "지역:인천", "target": "채널:모바일", "value": 6568.0}, {"source": "지역:인천", "target": "채널:오프라인", "value": 6545.0}, {"source": "지역:서울", "target": "채널:온라인", "value": 6104.0}, {"source": "지역:대구", "target": "채널:오프라인", "value": 6061.0}, {"source": "지역:부산", "target": "채널:온라인", "value": 5503.0}, {"source": "지역:부산", "target": "채널:오프라인", "value": 5246.0}, {"source": "카테고리:가구", "target": "지역:서울", "value": 5232.0}, {"source": "카테고리:스포츠", "target": "지역:서울", "value": 5024.0}, {"source": "지역:부산", "target": "채널:모바일", "value": 4815.0}, {"source": "카테고리:의류", "target": "지역:대구", "value": 4655.0}, {"source": "카테고리:가구", "target": "지역:대구", "value": 4312.0}, {"source": "카테고리:식품", "target": "지역:부산", "value": 4236.0}, {"source": "카테고리:스포츠", "target": "지역:인천", "value": 3982.0}, {"source": "카테고리:의류", "target": "지역:부산", "value": 3922.0}, {"source": "카테고리:전자제품", "target": "지역:인천", "value": 3720.0}, {"source": "카테고리:스포츠", "target": "지역:대구", "value": 3618.0}, {"source": "지역:대구", "target": "채널:온라인", "value": 3584.0}, {"source": "카테고리:식품", "target": "지역:인천", "value": 3391.0}, {"source": "카테고리:의류", "target": "지역:인천", "value": 3249.0}, {"source": "지역:서울", "target": "채널:모바일", "value": 3215.0}, {"source": "카테고리:식품", "target": "지역:서울", "value": 3116.0}, {"source": "카테고리:전자제품", "target": "지역:서울", "value": 3060.0}, {"source": "카테고리:의류", "target": "지역:서울", "value": 2986.0}, {"source": "카테고리:식품", "target": "지역:대구", "value": 2967.0}, {"source": "카테고리:가구", "target": "지역:부산", "value": 2824.0}, {"source": "카테고리:전자제품", "target": "지역:부산", "value": 2731.0}, {"source": "카테고리:전자제품", "target": "지역:대구", "value": 2449.0}, {"source": "카테고리:스포츠", "target": "지역:부산", "value": 1851.0}]}}, {"name": "Dual Y-Axis", "name_ko": "이중축 비교", "icon": "📊📊", "description": "서로 다른 단위의 두 지표를 각각의 Y축으로 겹쳐 비교", "best_for": "매출(원) vs 건수(건) 등 단위 상이", "chart_type": "dual_axis", "score": 81, "mapping": {"x": "날짜", "y": ["매출액", "이익"]}, "reason": "매출액(좌축)과 이익(우축)을 스케일 분리하여 겹쳐 비교합니다"}, {"name": "Scatter Plot", "name_ko": "산점도", "icon": "🔵", "description": "두 수치 변수 관계", "best_for": "상관관계", "chart_type": "scatter", "score": 80.78, "mapping": {"x": "매출액", "y": ["평점"]}, "reason": "매출액과 평점 관계 (r=0.08)"}, {"name": "100% Stacked Bar", "name_ko": "100% 누적 막대", "icon": "📊", "description": "각 카테고리를 100%로 정규화하여 비율 추세를 비교", "best_for": "비율 트렌드, 구성비 변화", "chart_type": "percent_bar", "score": 79, "mapping": {"x": "날짜", "y": ["매출액"], "group": "카테고리"}, "reason": "시간별 카테고리 구성비 변화를 100% 누적으로 추적합니다"}, {"name": "Bar+Line+Area", "name_ko": "3중 조합", "icon": "📊📈🏔️", "description": "막대+라인+영역을 한 차트에 조합하여 세 지표를 동시에 비교", "best_for": "매출(막대)+이익(라인)+수량추세(영역)", "chart_type": "bar_line_area", "score": 79, "mapping": {"x": "날짜", "y": ["매출액", "이익", "수량"]}, "reason": "매출액(막대)+이익(라인)+수량(영역) 3중 조합"}, {"name": "Stacked Bar", "name_ko": "누적 막대 차트", "icon": "📊", "description": "카테고리별 구성요소 합계", "best_for": "구성비 + 합계", "chart_type": "stacked_bar", "score": 78, "mapping": {"x": "카테고리", "y": ["매출액"], "group": "지역"}, "reason": "카테고리별 매출액을 지역으로 세분화"}, {"name": "Grouped Bar", "name_ko": "그룹 막대 차트", "icon": "📊", "description": "카테고리 내 그룹별 직접 비교", "best_for": "그룹 간 직접 비교", "chart_type": "grouped_bar", "score": 77, "mapping": {"x": "카테고리", "y": ["매출액"], "group": "지역"}, "reason": "카테고리별 매출액을 지역으로 그룹 비교"}, {"name": "Pie Chart", "name_ko": "파이 차트", "icon": "🥧", "description": "전체 대비 비율", "best_for": "비율 (≤7 카테고리)", "chart_type": "pie", "score": 75, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리의 구성비"}, {"name": "Theme River", "name_ko": "테마 리버", "icon": "🏞️", "description": "시간 카테고리 흐름", "best_for": "토픽 흐름", "chart_type": "themeriver", "score": 74, "mapping": {"x": "날짜", "y": ["매출액"], "group": "카테고리"}, "reason": "시간별 카테고리 흐름 리버"}, {"name": "Pie + Bar", "name_ko": "파이+막대 조합", "icon": "🥧📊", "description": "전체 비율(파이)과 상세 비교(막대)를 나란히 표시", "best_for": "비율 개요 + 상세 비교", "chart_type": "pie_bar", "score": 74, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리의 매출액 비율(파이)과 값 비교(막대)를 나란히 표시"}, {"name": "Doughnut Chart", "name_ko": "도넛 차트", "icon": "🍩", "description": "중앙 요약이 있는 비율", "best_for": "비율 + 요약", "chart_type": "doughnut", "score": 73, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 비율 도넛"}, {"name": "Funnel Chart", "name_ko": "깔때기 차트", "icon": "🔻", "description": "단계별 감소 흐름", "best_for": "전환율, 퍼널", "chart_type": "funnel", "score": 72, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 깔때기"}, {"name": "Nightingale Rose", "name_ko": "나이팅게일 로즈", "icon": "🌹", "description": "반지름으로 크기 인코딩", "best_for": "크기 강조 비율", "chart_type": "nightingale", "score": 71, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 나이팅게일 로즈"}, {"name": "Calendar Heatmap", "name_ko": "캘린더 히트맵", "icon": "📅", "description": "날짜별 수치를 달력 형태로 표현", "best_for": "일별 패턴, 계절성", "chart_type": "calendar_heatmap", "score": 70, "mapping": {"x": "날짜", "y": ["매출액"]}, "reason": "날짜별 매출액을 캘린더 히트맵으로 패턴 분석합니다"}, {"name": "Bubble Chart", "name_ko": "버블 차트", "icon": "🫧", "description": "3개 수치 변수 관계", "best_for": "3차원 관계", "chart_type": "bubble", "score": 70, "mapping": {"x": "매출액", "y": ["이익"], "group": "수량"}, "reason": "X=매출액, Y=이익, 크기=수량"}, {"name": "Step Line", "name_ko": "계단형 차트", "icon": "📉", "description": "이산적 변화를 계단 형태로 표현", "best_for": "상태 변화, 이산 이벤트", "chart_type": "step_line", "score": 69, "mapping": {"x": "날짜", "y": ["매출액"]}, "reason": "매출액의 이산적 변화를 계단형으로 표현합니다"}, {"name": "Lollipop Chart", "name_ko": "롤리팝 차트", "icon": "🍭", "description": "막대 대신 점+선으로 깔끔하게 비교", "best_for": "순위, 깔끔한 비교", "chart_type": "lollipop", "score": 69, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 매출액을 롤리팝으로 깔끔하게 비교합니다"}, {"name": "Cross Heatmap", "name_ko": "크로스 히트맵", "icon": "🟧", "description": "두 카테고리 축의 교차 수치를 색상으로 표현", "best_for": "교차 분석, 매트릭스 비교", "chart_type": "cross_heatmap", "score": 69, "mapping": {"x": "카테고리", "y": ["매출액"], "group": "지역"}, "reason": "카테고리 × 지역 교차 테이블을 히트맵으로 봅니다"}, {"name": "Box Plot", "name_ko": "박스 플롯", "icon": "📦", "description": "사분위수와 이상치", "best_for": "분포 비교", "chart_type": "box", "score": 68, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 매출액 분포 비교"}, {"name": "Treemap", "name_ko": "트리맵", "icon": "🟩", "description": "계층적 중첩 사각형", "best_for": "계층 비율", "chart_type": "treemap", "score": 67, "mapping": {"x": ["카테고리", "지역"], "y": ["매출액"]}, "reason": "계층 구조 비교", "tree_data": [{"name": "가구", "children": [{"name": "인천", "value": 7478.0}, {"name": "서울", "value": 5232.0}, {"name": "대구", "value": 4312.0}, {"name": "부산", "value": 2824.0}]}, {"name": "의류", "children": [{"name": "대구", "value": 4655.0}, {"name": "부산", "value": 3922.0}, {"name": "인천", "value": 3249.0}, {"name": "서울", "value": 2986.0}]}, {"name": "스포츠", "children": [{"name": "서울", "value": 5024.0}, {"name": "인천", "value": 3982.0}, {"name": "대구", "value": 3618.0}, {"name": "부산", "value": 1851.0}]}, {"name": "식품", "children": [{"name": "부산", "value": 4236.0}, {"name": "인천", "value": 3391.0}, {"name": "서울", "value": 3116.0}, {"name": "대구", "value": 2967.0}]}, {"name": "전자제품", "children": [{"name": "인천", "value": 3720.0}, {"name": "서울", "value": 3060.0}, {"name": "부산", "value": 2731.0}, {"name": "대구", "value": 2449.0}]}]}, {"name": "Waterfall Chart", "name_ko": "폭포 차트", "icon": "🪜", "description": "값의 증감 순차 표시", "best_for": "증감 분석", "chart_type": "waterfall", "score": 66, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "증감 폭포 차트"}, {"name": "Histogram", "name_ko": "히스토그램", "icon": "📶", "description": "수치 데이터 분포", "best_for": "분포 분석", "chart_type": "histogram", "score": 65, "mapping": {"x": "매출액", "y": ["매출액"]}, "reason": "매출액 분포"}, {"name": "Polar Bar", "name_ko": "극좌표 막대", "icon": "🎯", "description": "원형 좌표 카테고리 비교", "best_for": "주기적 데이터", "chart_type": "polar_bar", "score": 64, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 극좌표 막대"}, {"name": "Candlestick", "name_ko": "캔들스틱 차트", "icon": "🕯️", "description": "시간별 OHLC/범위를 캔들로 표현", "best_for": "가격 변동, 범위 분석", "chart_type": "candlestick", "score": 63, "mapping": {"x": "날짜", "y": ["매출액"]}, "reason": "기간별 매출액의 시가/고가/저가/종가 범위를 캔들로 봅니다"}, {"name": "Sunburst", "name_ko": "선버스트", "icon": "☀️", "description": "계층적 동심원", "best_for": "드릴다운", "chart_type": "sunburst", "score": 63, "mapping": {"x": ["카테고리", "지역"], "y": ["매출액"]}, "reason": "선버스트 드릴다운", "tree_data": [{"name": "가구", "children": [{"name": "인천", "value": 7478.0}, {"name": "서울", "value": 5232.0}, {"name": "대구", "value": 4312.0}, {"name": "부산", "value": 2824.0}]}, {"name": "의류", "children": [{"name": "대구", "value": 4655.0}, {"name": "부산", "value": 3922.0}, {"name": "인천", "value": 3249.0}, {"name": "서울", "value": 2986.0}]}, {"name": "스포츠", "children": [{"name": "서울", "value": 5024.0}, {"name": "인천", "value": 3982.0}, {"name": "대구", "value": 3618.0}, {"name": "부산", "value": 1851.0}]}, {"name": "식품", "children": [{"name": "부산", "value": 4236.0}, {"name": "인천", "value": 3391.0}, {"name": "서울", "value": 3116.0}, {"name": "대구", "value": 2967.0}]}, {"name": "전자제품", "children": [{"name": "인천", "value": 3720.0}, {"name": "서울", "value": 3060.0}, {"name": "부산", "value": 2731.0}, {"name": "대구", "value": 2449.0}]}]}, {"name": "Slope Chart", "name_ko": "기울기 차트", "icon": "📐", "description": "두 시점 간의 순위나 값 변화를 기울기선으로 비교", "best_for": "전후 비교, 순위 변동", "chart_type": "slope", "score": 62, "mapping": {"x": "카테고리", "y": ["매출액", "이익"]}, "reason": "카테고리별 매출액 vs 이익 변화를 기울기로 비교"}, {"name": "Violin Plot", "name_ko": "바이올린 플롯", "icon": "🎻", "description": "분포 형태를 대칭 곡선으로 표현", "best_for": "분포 형태 비교", "chart_type": "violin", "score": 61, "mapping": {"x": "카테고리", "y": ["매출액"]}, "reason": "카테고리별 매출액 분포 형태를 바이올린으로 비교"}, {"name": "Radar Chart", "name_ko": "레이더 차트", "icon": "🕸️", "description": "여러 지표 동시 비교", "best_for": "다중 지표 비교", "chart_type": "radar", "score": 60, "mapping": {"x": "카테고리", "y": ["매출액", "이익", "수량", "평점"]}, "reason": "여러 지표(매출액, 이익, 수량...) 동시 비교"}, {"name": "Heatmap", "name_ko": "히트맵", "icon": "🟥", "description": "수치 강도를 색상 표현", "best_for": "상관 행렬", "chart_type": "heatmap", "score": 58, "mapping": {"x": "columns", "y": ["columns"]}, "reason": "상관관계 행렬 시각화"}, {"name": "Parallel Coordinates", "name_ko": "평행 좌표", "icon": "☰", "description": "다차원 수치 패턴 탐색", "best_for": "다변량 패턴", "chart_type": "parallel", "score": 57, "mapping": {"x": "rows", "y": ["매출액", "이익", "수량", "평점"], "group": "카테고리"}, "reason": "4개 수치를 평행 좌표로 패턴 탐색"}, {"name": "Word Cloud", "name_ko": "워드 클라우드", "icon": "☁️", "description": "카테고리 값의 빈도를 글자 크기로 표현", "best_for": "키워드 빈도, 텍스트 분석", "chart_type": "wordcloud", "score": 55, "mapping": {"x": "카테고리", "y": ["카테고리"]}, "reason": "카테고리의 빈도를 워드 클라우드로 시각화합니다"}, {"name": "KPI Dashboard", "name_ko": "KPI 대시보드", "icon": "🏷️", "description": "핵심 수치 지표를 카드 형태로 요약", "best_for": "요약 대시보드, 핵심 지표", "chart_type": "kpi_cards", "score": 50, "mapping": {"x": "summary", "y": ["매출액", "이익", "수량", "평점"]}, "reason": "핵심 수치 4개를 KPI 카드로 요약합니다"}, {"name": "Gauge", "name_ko": "게이지", "icon": "🎛️", "description": "단일 KPI 계기판", "best_for": "KPI 모니터링", "chart_type": "gauge", "score": 45, "mapping": {"x": "매출액", "y": ["매출액"]}, "reason": "매출액 평균 게이지"}, {"name": "Line Chart", "name_ko": "라인 차트", "icon": "📈", "description": "시간에 따른 추세 변화", "best_for": "시계열, 트렌드", "chart_type": "line", "score": 95, "mapping": {"x": "날짜", "y": ["이익"]}, "reason": "시간(날짜)에 따른 이익 추세"}, {"name": "Line Chart", "name_ko": "라인 차트", "icon": "📈", "description": "시간에 따른 추세 변화", "best_for": "시계열, 트렌드", "chart_type": "line", "score": 95, "mapping": {"x": "날짜", "y": ["수량"]}, "reason": "시간(날짜)에 따른 수량 추세"}], "preview": {"columns": ["날짜", "카테고리", "지역", "채널", "매출액", "이익", "수량", "평점"], "row_count": 150, "preview_rows": 60, "data": [{"날짜": "2023-01-01", "카테고리": "가구", "지역": "서울", "채널": "모바일", "매출액": 484.0, "이익": 103.0, "수량": 163, "평점": 3.3}, {"날짜": "2023-01-02", "카테고리": "스포츠", "지역": "대구", "채널": "오프라인", "매출액": 427.0, "이익": 101.0, "수량": 165, "평점": 4.7}, {"날짜": "2023-01-03", "카테고리": "식품", "지역": "부산", "채널": "온라인", "매출액": 739.0, "이익": 47.0, "수량": 379, "평점": 4.0}, {"날짜": "2023-01-04", "카테고리": "스포츠", "지역": "서울", "채널": "모바일", "매출액": 435.0, "이익": 133.0, "수량": 478, "평점": 4.8}, {"날짜": "2023-01-05", "카테고리": "스포츠", "지역": "서울", "채널": "온라인", "매출액": 390.0, "이익": 84.0, "수량": 58, "평점": 4.6}, {"날짜": "2023-01-06", "카테고리": "의류", "지역": "서울", "채널": "오프라인", "매출액": 413.0, "이익": 68.0, "수량": 464, "평점": 3.9}, {"날짜": "2023-01-07", "카테고리": "식품", "지역": "대구", "채널": "오프라인", "매출액": 480.0, "이익": 76.0, "수량": 346, "평점": 3.0}, {"날짜": "2023-01-08", "카테고리": "식품", "지역": "부산", "채널": "모바일", "매출액": 381.0, "이익": 46.0, "수량": 93, "평점": 3.5}, {"날짜": "2023-01-09", "카테고리": "식품", "지역": "서울", "채널": "오프라인", "매출액": 445.0, "이익": 97.0, "수량": 370, "평점": 4.1}, {"날짜": "2023-01-10", "카테고리": "스포츠", "지역": "인천", "채널": "온라인", "매출액": 524.0, "이익": 197.0, "수량": 186, "평점": 4.3}, {"날짜": "2023-01-11", "카테고리": "가구", "지역": "서울", "채널": "모바일", "매출액": 483.0, "이익": 90.0, "수량": 157, "평점": 3.5}, {"날짜": "2023-01-12", "카테고리": "식품", "지역": "서울", "채널": "온라인", "매출액": 625.0, "이익": 119.0, "수량": 127, "평점": 3.3}, {"날짜": "2023-01-13", "카테고리": "스포츠", "지역": "대구", "채널": "온라인", "매출액": 452.0, "이익": 51.0, "수량": 351, "평점": 4.7}, {"날짜": "2023-01-14", "카테고리": "의류", "지역": "대구", "채널": "오프라인", "매출액": 469.0, "이익": 98.0, "수량": 485, "평점": 5.0}, {"날짜": "2023-01-15", "카테고리": "가구", "지역": "부산", "채널": "오프라인", "매출액": 541.0, "이익": 152.0, "수량": 72, "평점": 4.1}, {"날짜": "2023-01-16", "카테고리": "의류", "지역": "인천", "채널": "오프라인", "매출액": 837.0, "이익": 93.0, "수량": 198, "평점": 3.3}, {"날짜": "2023-01-17", "카테고리": "가구", "지역": "대구", "채널": "오프라인", "매출액": 382.0, "이익": 61.0, "수량": 369, "평점": 3.5}, {"날짜": "2023-01-18", "카테고리": "스포츠", "지역": "서울", "채널": "오프라인", "매출액": 789.0, "이익": 127.0, "수량": 58, "평점": 3.0}, {"날짜": "2023-01-19", "카테고리": "전자제품", "지역": "부산", "채널": "모바일", "매출액": 322.0, "이익": 54.0, "수량": 336, "평점": 4.8}, {"날짜": "2023-01-20", "카테고리": "가구", "지역": "서울", "채널": "온라인", "매출액": 534.0, "이익": 37.0, "수량": 266, "평점": 3.2}, {"날짜": "2023-01-21", "카테고리": "의류", "지역": "서울", "채널": "온라인", "매출액": 449.0, "이익": 34.0, "수량": 233, "평점": 4.2}, {"날짜": "2023-01-22", "카테고리": "스포츠", "지역": "대구", "채널": "온라인", "매출액": 378.0, "이익": 38.0, "수량": 150, "평점": 3.5}, {"날짜": "2023-01-23", "카테고리": "가구", "지역": "부산", "채널": "온라인", "매출액": 605.0, "이익": 76.0, "수량": 487, "평점": 4.1}, {"날짜": "2023-01-24", "카테고리": "전자제품", "지역": "인천", "채널": "오프라인", "매출액": 590.0, "이익": 120.0, "수량": 224, "평점": 4.3}, {"날짜": "2023-01-25", "카테고리": "전자제품", "지역": "인천", "채널": "온라인", "매출액": 428.0, "이익": 159.0, "수량": 444, "평점": 4.7}, {"날짜": "2023-01-26", "카테고리": "식품", "지역": "대구", "채널": "모바일", "매출액": 186.0, "이익": 65.0, "수량": 388, "평점": 3.4}, {"날짜": "2023-01-27", "카테고리": "식품", "지역": "대구", "채널": "모바일", "매출액": 437.0, "이익": 167.0, "수량": 449, "평점": 3.0}, {"날짜": "2023-01-28", "카테고리": "의류", "지역": "부산", "채널": "온라인", "매출액": 521.0, "이익": 145.0, "수량": 220, "평점": 3.3}, {"날짜": "2023-01-29", "카테고리": "가구", "지역": "인천", "채널": "온라인", "매출액": 500.0, "이익": 128.0, "수량": 327, "평점": 4.8}, {"날짜": "2023-01-30", "카테고리": "가구", "지역": "인천", "채널": "모바일", "매출액": 613.0, "이익": 195.0, "수량": 41, "평점": 4.7}, {"날짜": "2023-01-31", "카테고리": "식품", "지역": "인천", "채널": "모바일", "매출액": 790.0, "이익": 140.0, "수량": 167, "평점": 4.2}, {"날짜": "2023-02-01", "카테고리": "가구", "지역": "서울", "채널": "오프라인", "매출액": 562.0, "이익": 78.0, "수량": 294, "평점": 4.2}, {"날짜": "2023-02-02", "카테고리": "가구", "지역": "인천", "채널": "모바일", "매출액": 585.0, "이익": 64.0, "수량": 314, "평점": 4.3}, {"날짜": "2023-02-03", "카테고리": "전자제품", "지역": "서울", "채널": "오프라인", "매출액": 522.0, "이익": 132.0, "수량": 438, "평점": 3.4}, {"날짜": "2023-02-04", "카테고리": "식품", "지역": "부산", "채널": "오프라인", "매출액": 676.0, "이익": 99.0, "수량": 486, "평점": 4.8}, {"날짜": "2023-02-05", "카테고리": "스포츠", "지역": "서울", "채널": "오프라인", "매출액": 580.0, "이익": 23.0, "수량": 295, "평점": 3.8}, {"날짜": "2023-02-06", "카테고리": "식품", "지역": "부산", "채널": "오프라인", "매출액": 612.0, "이익": 156.0, "수량": 153, "평점": 3.8}, {"날짜": "2023-02-07", "카테고리": "스포츠", "지역": "인천", "채널": "오프라인", "매출액": 771.0, "이익": 138.0, "수량": 433, "평점": 4.0}, {"날짜": "2023-02-08", "카테고리": "전자제품", "지역": "인천", "채널": "온라인", "매출액": 534.0, "이익": 14.0, "수량": 28, "평점": 3.1}, {"날짜": "2023-02-09", "카테고리": "의류", "지역": "부산", "채널": "모바일", "매출액": 459.0, "이익": 133.0, "수량": 27, "평점": 3.3}, {"날짜": "2023-02-10", "카테고리": "가구", "지역": "대구", "채널": "오프라인", "매출액": 567.0, "이익": 126.0, "수량": 266, "평점": 4.5}, {"날짜": "2023-02-11", "카테고리": "전자제품", "지역": "부산", "채널": "모바일", "매출액": 670.0, "이익": 67.0, "수량": 87, "평점": 3.2}, {"날짜": "2023-02-12", "카테고리": "가구", "지역": "대구", "채널": "모바일", "매출액": 575.0, "이익": 50.0, "수량": 380, "평점": 4.2}, {"날짜": "2023-02-13", "카테고리": "의류", "지역": "서울", "채널": "오프라인", "매출액": 659.0, "이익": 212.0, "수량": 184, "평점": 3.5}, {"날짜": "2023-02-14", "카테고리": "의류", "지역": "서울", "채널": "온라인", "매출액": 400.0, "이익": 229.0, "수량": 203, "평점": 3.8}, {"날짜": "2023-02-15", "카테고리": "전자제품", "지역": "서울", "채널": "오프라인", "매출액": 370.0, "이익": 64.0, "수량": 485, "평점": 3.6}, {"날짜": "2023-02-16", "카테고리": "의류", "지역": "인천", "채널": "온라인", "매출액": 418.0, "이익": 152.0, "수량": 122, "평점": 3.7}, {"날짜": "2023-02-17", "카테고리": "스포츠", "지역": "서울", "채널": "모바일", "매출액": 310.0, "이익": 148.0, "수량": 123, "평점": 4.4}, {"날짜": "2023-02-18", "카테고리": "의류", "지역": "대구", "채널": "온라인", "매출액": 517.0, "이익": 99.0, "수량": 231, "평점": 3.6}, {"날짜": "2023-02-19", "카테고리": "가구", "지역": "서울", "채널": "온라인", "매출액": 435.0, "이익": 164.0, "수량": 175, "평점": 4.1}, {"날짜": "2023-02-20", "카테고리": "가구", "지역": "부산", "채널": "온라인", "매출액": 685.0, "이익": 163.0, "수량": 444, "평점": 4.0}, {"날짜": "2023-02-21", "카테고리": "가구", "지역": "부산", "채널": "모바일", "매출액": 306.0, "이익": 127.0, "수량": 328, "평점": 4.3}, {"날짜": "2023-02-22", "카테고리": "가구", "지역": "인천", "채널": "모바일", "매출액": 733.0, "이익": 132.0, "수량": 141, "평점": 4.9}, {"날짜": "2023-02-23", "카테고리": "스포츠", "지역": "부산", "채널": "온라인", "매출액": 353.0, "이익": 147.0, "수량": 394, "평점": 4.5}, {"날짜": "2023-02-24", "카테고리": "식품", "지역": "대구", "채널": "온라인", "매출액": 314.0, "이익": 120.0, "수량": 273, "평점": 3.4}, {"날짜": "2023-02-25", "카테고리": "전자제품", "지역": "서울", "채널": "오프라인", "매출액": 376.0, "이익": 68.0, "수량": 422, "평점": 3.1}, {"날짜": "2023-02-26", "카테고리": "가구", "지역": "인천", "채널": "온라인", "매출액": 793.0, "이익": 33.0, "수량": 64, "평점": 3.5}, {"날짜": "2023-02-27", "카테고리": "의류", "지역": "서울", "채널": "오프라인", "매출액": 494.0, "이익": 166.0, "수량": 368, "평점": 4.2}, {"날짜": "2023-02-28", "카테고리": "가구", "지역": "서울", "채널": "온라인", "매출액": 579.0, "이익": 32.0, "수량": 140, "평점": 3.1}, {"날짜": "2023-03-01", "카테고리": "의류", "지역": "대구", "채널": "오프라인", "매출액": 472.0, "이익": 69.0, "수량": 297, "평점": 4.0}]}, "processing_time_ms": 42};
+document.addEventListener("DOMContentLoaded",()=>{const z=document.getElementById("dropZone");const b=document.createElement("button");b.textContent="🎯 데모: 38종 차트 (조합 5개 포함)";b.style.cssText="margin-top:1.2rem;padding:.7rem 1.5rem;border-radius:10px;border:none;background:linear-gradient(135deg,#4f7df9,#a78bfa);color:#fff;font-weight:600;font-size:.9rem;cursor:pointer;font-family:inherit;position:relative;z-index:2;";b.onclick=(e)=>{e.stopPropagation();renderResults(DEMO_DATA)};z.appendChild(b)});
+</script></body></html>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChartForge — 엑셀 데이터 차트 추천</title>
+
+<!-- ECharts: local first, CDN fallback -->
+<script src="lib/echarts.min.js"></script>
+<script>if(typeof echarts==='undefined'){document.write('<scr'+'ipt src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"><\/scr'+'ipt>');console.log('[ChartForge] Using CDN for ECharts');}</script>
+<script src="lib/echarts-wordcloud.min.js"></script>
+<script>if(typeof echarts==='undefined'||!echarts.registerMap){document.write('<scr'+'ipt src="https://cdn.jsdelivr.net/npm/echarts-wordcloud@2.1.0/dist/echarts-wordcloud.min.js"><\/scr'+'ipt>');}</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">📊</div>
+    <h1>ChartForge</h1>
+  </div>
+  <div class="badge-group">
+    <div class="badge echarts">APACHE ECHARTS</div>
+    <div class="badge ai">AI-POWERED</div>
+  </div>
+</header>
+
+<section class="upload-section">
+  <div class="upload-zone" id="dropZone">
+    <span class="upload-icon">⬆️</span>
+    <div class="upload-title">엑셀 또는 CSV 파일을 드래그하세요</div>
+    <div class="upload-sub">클릭하여 파일을 선택할 수도 있습니다</div>
+    <div class="upload-formats">
+      <span class="format-tag">.xlsx</span>
+      <span class="format-tag">.xls</span>
+      <span class="format-tag">.csv</span>
+      <span class="format-tag">.tsv</span>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.tsv">
+  </div>
+</section>
+
+<div class="loading-overlay" id="loading">
+  <div class="loader">
+    <div class="spinner"></div>
+    <p id="loadingMsg">준비 중...</p>
+    <div class="progress-steps" id="progressSteps"></div>
+    <div class="p-bar"><div class="p-bar-fill" id="progressBar"></div></div>
+  </div>
+</div>
+
+<section class="results" id="results">
+  <div class="section-title animate-in"><span>📋</span> 파일 요약</div>
+  <div class="file-summary" id="fileSummary"></div>
+  <div class="section-title animate-in delay-1"><span>🔬</span> 컬럼 분석</div>
+  <div class="columns-grid" id="columnsGrid"></div>
+  <div class="section-title animate-in delay-2"><span>✨</span> 추천 차트</div>
+  <div class="recs-grid" id="recsGrid"></div>
+  <div class="section-title animate-in delay-3"><span>📄</span> 데이터 미리보기</div>
+  <div class="table-wrap" id="tableWrap"></div>
+</section>
+
+<!-- JS Modules -->
+<script src="js/config.js"></script>
+<script src="js/colors.js"></script>
+<script src="js/overlay.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
